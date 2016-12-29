@@ -1,0 +1,25 @@
+buildscript {
+    repositories {
+        mavenLocal()
+    }
+    dependencies {
+        classpath group: 'com.github.jlewallen.arduino', name: 'arduino-gradle', version: '1.0'
+    }
+}
+
+apply plugin: 'com.github.jlewallen.arduino'
+
+import com.github.jlewallen.arduino.*
+
+model {
+    components {
+        simon(ArduinoComponentSpec) {
+            boards = [ "adafruit:samd:adafruit_feather_m0" ]
+            libraries = [ "SPI" ]
+            userCppSourcesFlags = "-Wall"
+            userCSourcesFlags = "-Wall"
+        }
+    }
+}
+
+// vim: set ft=groovy:
