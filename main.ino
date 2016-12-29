@@ -37,12 +37,12 @@ void setup() {
     Serial.print("sd_raw: size (x512): ");
     Serial.println(size);
 
-    if (!fkfs_initialize_file(&fs, FKFS_FILE_LOG, FKFS_FILE_PRIORITY_LOWEST, "DEBUG.LOG")) {
+    if (!fkfs_initialize_file(&fs, FKFS_FILE_LOG, FKFS_FILE_PRIORITY_LOWEST, false, "DEBUG.LOG")) {
         Serial.println("fkfs_initialize failed");
         return;
     }
 
-    if (!fkfs_initialize_file(&fs, FKFS_FILE_DATA, FKFS_FILE_PRIORITY_HIGHEST, "DATA.BIN")) {
+    if (!fkfs_initialize_file(&fs, FKFS_FILE_DATA, FKFS_FILE_PRIORITY_HIGHEST, true, "DATA.BIN")) {
         Serial.println("fkfs_initialize failed");
         return;
     }
@@ -55,10 +55,10 @@ void setup() {
     fkfs_log_statistics(&fs);
 
     uint8_t buffer[24];
-    memset(buffer, 0, sizeof(buffer));
+    memzero(buffer, sizeof(buffer));
 
     for (uint8_t i = 0; i < 255; ++i) {
-        if (i % 2 == 0) {
+        if (i % 5 == 0) {
             memcpy(buffer, "World", 5);
             if (!fkfs_file_append(&fs, FKFS_FILE_DATA, sizeof(buffer), buffer)) {
                 Serial.println("fkfs_file_append #1 failed");

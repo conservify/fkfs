@@ -6,10 +6,12 @@
 
 #include "sd_raw.h"
 
-#define FKFS_FILES_MAX            4
+#define memzero(ptr, sz)          memset(ptr, 0, sz)
+
+const uint16_t FKFS_FILES_MAX = 4;
+const uint16_t SD_RAW_BLOCK_SIZE = 512;
 
 typedef struct fkfs_file_t {
-    uint8_t priority;
     char name[12];
 } __attribute__((packed)) fkfs_file_t;
 
@@ -28,15 +30,25 @@ typedef struct fkfs_entry_t {
     uint16_t crc;
 } __attribute__((packed)) fkfs_entry_t;
 
+typedef struct fkfs_file_runtime_settings_t {
+    uint8_t sync;
+    uint8_t priority;
+} fkfs_file_runtime_settings_t;
+
 typedef struct fkfs_t {
-    fkfs_header_t header;
     uint8_t headerIndex;
+    uint32_t cachedBlockNumber;
+    fkfs_header_t header;
     sd_raw_t sd;
+    uint8_t buffer[SD_RAW_BLOCK_SIZE];
+    fkfs_file_runtime_settings_t files[FKFS_FILES_MAX];
 } fkfs_t;
+
+const uint16_t FKFS_HEADER_SIZE_MINUS_CRC = offsetof(fkfs_header_t, crc);
 
 uint8_t fkfs_create(fkfs_t *fs);
 
-uint8_t fkfs_initialize_file(fkfs_t *fs, uint8_t id, uint8_t priority, const char *name);
+uint8_t fkfs_initialize_file(fkfs_t *fs, uint8_t id, uint8_t priority, uint8_t sync, const char *name);
 
 uint8_t fkfs_initialize(fkfs_t *fs, bool wipe);
 

@@ -1,11 +1,8 @@
 #include "fkfs.h"
 #include <string.h>
 
-const uint16_t SD_RAW_BLOCK_SIZE = 512;
-
 #include <Arduino.h>
 #define FKFS_LOG(msg)     Serial.println(msg)
-#define memzero(ptr, sz)  memset(ptr, 0, sz)
 
 static uint32_t crc16_table[16] = {
     0x0000, 0xCC01, 0xD801, 0x1400, 0xF001, 0x3C00, 0x2800, 0xE401,
@@ -33,8 +30,6 @@ static uint16_t crc16_update(uint16_t start, uint8_t *p, uint16_t n) {
     return crc;
 }
 
-#define FKFS_HEADER_SIZE_MINUS_CRC offsetof(fkfs_header_t, crc)
-
 static uint8_t fkfs_header_crc_valid(fkfs_header_t *header) {
     uint16_t actual = crc16_update(0, (uint8_t *)header, FKFS_HEADER_SIZE_MINUS_CRC);
     return header->crc == actual;
@@ -52,9 +47,11 @@ uint8_t fkfs_create(fkfs_t *fs) {
     return true;
 }
 
-uint8_t fkfs_initialize_file(fkfs_t *fs, uint8_t id, uint8_t priority, const char *name) {
-    fs->header.files[id].priority = priority;
+uint8_t fkfs_initialize_file(fkfs_t *fs, uint8_t id, uint8_t priority, uint8_t sync, const char *name) {
     strncpy(fs->header.files[id].name, name, sizeof(fs->header.files[id].name));
+
+    fs->files[id].sync = sync;
+    fs->files[id].priority = priority;
 
     return true;
 }
@@ -74,12 +71,11 @@ static uint8_t fkfs_header_write(fkfs_t *fs, uint8_t *temp) {
 }
 
 uint8_t fkfs_initialize(fkfs_t *fs, bool wipe) {
-    uint8_t buffer[SD_RAW_BLOCK_SIZE];
-    fkfs_header_t *headers = (fkfs_header_t *)buffer;
+    fkfs_header_t *headers = (fkfs_header_t *)fs->buffer;
 
-    memzero(buffer, sizeof(SD_RAW_BLOCK_SIZE));
+    memzero(fs->buffer, sizeof(SD_RAW_BLOCK_SIZE));
 
-    if (!sd_raw_read_block(&fs->sd, 0, (uint8_t *)buffer)) {
+    if (!sd_raw_read_block(&fs->sd, 0, (uint8_t *)fs->buffer)) {
         return false;
     }
 
@@ -89,11 +85,9 @@ uint8_t fkfs_initialize(fkfs_t *fs, bool wipe) {
          !fkfs_header_crc_valid(&headers[1])) ||
          wipe) {
 
-        FKFS_LOG("fkfs: new filesystem");
-
         // New filesystem... initialize a blank header.
         fs->header.block = 1;
-        if (!fkfs_header_write(fs, buffer)) {
+        if (!fkfs_header_write(fs, fs->buffer)) {
             return false;
         }
     }
@@ -111,8 +105,6 @@ uint8_t fkfs_initialize(fkfs_t *fs, bool wipe) {
             fs->headerIndex = 1;
         }
 
-        Serial.print("fkfs: using header ");
-        Serial.println(fs->headerIndex);
         memcpy((void *)&fs->header, (void *)&headers[fs->headerIndex], sizeof(fkfs_header_t));
     }
 
@@ -120,7 +112,6 @@ uint8_t fkfs_initialize(fkfs_t *fs, bool wipe) {
 }
 
 uint8_t fkfs_file_append(fkfs_t *fs, uint8_t file, uint16_t size, uint8_t *data) {
-    uint8_t buffer[SD_RAW_BLOCK_SIZE];
     uint16_t required = sizeof(fkfs_entry_t) + size;
     fkfs_entry_t entry = { 0 };
 
@@ -133,8 +124,11 @@ uint8_t fkfs_file_append(fkfs_t *fs, uint8_t file, uint16_t size, uint8_t *data)
         fs->header.offset = 0;
     }
 
-    if (!sd_raw_read_block(&fs->sd, fs->header.block, (uint8_t *)buffer)) {
-        return false;
+    if (fs->cachedBlockNumber != fs->header.block) {
+        if (!sd_raw_read_block(&fs->sd, fs->header.block, (uint8_t *)fs->buffer)) {
+            return false;
+        }
+        fs->cachedBlockNumber = fs->header.block;
     }
 
     entry.file = file;
@@ -142,20 +136,25 @@ uint8_t fkfs_file_append(fkfs_t *fs, uint8_t file, uint16_t size, uint8_t *data)
     entry.crc = crc16_update(0, data, size);
 
     // TODO: Maybe just cast the buffer to this?
-    memcpy(((uint8_t *)buffer) + fs->header.offset, (uint8_t *)&entry, sizeof(fkfs_entry_t));
+    memcpy(((uint8_t *)fs->buffer) + fs->header.offset, (uint8_t *)&entry, sizeof(fkfs_entry_t));
 
-    memcpy(((uint8_t *)buffer) + fs->header.offset + sizeof(fkfs_entry_t), data, size);
+    memcpy(((uint8_t *)fs->buffer) + fs->header.offset + sizeof(fkfs_entry_t), data, size);
 
-    if (!sd_raw_write_block(&fs->sd, fs->header.block, (uint8_t *)buffer)) {
+    if (!sd_raw_write_block(&fs->sd, fs->header.block, (uint8_t *)fs->buffer)) {
         return false;
     }
 
     fs->header.offset += required;
-    fs->header.generation++;
-    fs->headerIndex = (fs->headerIndex + 1) % 2;
 
-    if (!fkfs_header_write(fs, buffer)) {
-        return false;
+    if (fs->files[file].sync) {
+        fs->header.generation++;
+        fs->headerIndex = (fs->headerIndex + 1) % 2;
+
+        if (!fkfs_header_write(fs, fs->buffer)) {
+            return false;
+        }
+
+        fs->cachedBlockNumber = UINT32_MAX;
     }
 
     return true;
