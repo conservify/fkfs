@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 #define FKFS_LOG(msg)     Serial.println(msg)
+#define FKFS_DEBUG
 
 static uint32_t crc16_table[16] = {
     0x0000, 0xCC01, 0xD801, 0x1400, 0xF001, 0x3C00, 0x2800, 0xE401,
@@ -47,11 +48,14 @@ uint8_t fkfs_create(fkfs_t *fs) {
     return true;
 }
 
-uint8_t fkfs_initialize_file(fkfs_t *fs, uint8_t id, uint8_t priority, uint8_t sync, const char *name) {
-    strncpy(fs->header.files[id].name, name, sizeof(fs->header.files[id].name));
+uint8_t fkfs_initialize_file(fkfs_t *fs, uint8_t fileNumber, uint8_t priority, uint8_t sync, const char *name) {
+    fs->files[fileNumber].sync = sync;
+    fs->files[fileNumber].priority = priority;
 
-    fs->files[id].sync = sync;
-    fs->files[id].priority = priority;
+    fkfs_file_t *file = &fs->header.files[fileNumber];
+    strncpy(file->name, name, sizeof(file->name));
+    file->version = random(UINT16_MAX);
+    file->startBlock = 1;
 
     return true;
 }
@@ -84,10 +88,16 @@ uint8_t fkfs_initialize(fkfs_t *fs, bool wipe) {
     // If both checksums fail, then we're on a new card.
     // TODO: May want to make this configurable?
     if ((!fkfs_header_crc_valid(&headers[0]) &&
-         !fkfs_header_crc_valid(&headers[1])) ||
-         wipe) {
+         !fkfs_header_crc_valid(&headers[1])) || wipe) {
 
-        // New filesystem... initialize a blank header.
+        Serial.println("fkfs: initialize/wipe");
+
+        // New filesystem... initialize a blank header and new versions of all files.
+        for (uint8_t i = 0; i < FKFS_FILES_MAX; ++i) {
+            fs->header.files[i].version = random(UINT16_MAX);
+            Serial.print("file.version = ");
+            Serial.println(fs->header.files[i].version);
+        }
         fs->header.block = 1;
 
         // TODO: This is unnecessary?
@@ -115,70 +125,94 @@ uint8_t fkfs_initialize(fkfs_t *fs, bool wipe) {
     return true;
 }
 
-static uint16_t fkfs_block_crc(fkfs_t *fs, fkfs_entry_t *entry, uint8_t *data) {
-    uint16_t crc = 0;
+static uint16_t fkfs_block_crc(fkfs_t *fs, fkfs_file_t *file, fkfs_entry_t *entry, uint8_t *data) {
+    uint16_t crc = file->version;
 
-    crc16_update(crc, (uint8_t *)entry, FKFS_ENTRY_SIZE_MINUS_CRC);
-    crc16_update(crc, (uint8_t *)data, entry->size);
+    crc = crc16_update(crc, (uint8_t *)entry, FKFS_ENTRY_SIZE_MINUS_CRC);
+    crc = crc16_update(crc, (uint8_t *)data, entry->size);
 
     return crc;
 }
 
-static uint16_t fkfs_block_available_offset(fkfs_t *fs, uint8_t priority, uint16_t required, uint8_t *buffer) {
+static uint16_t fkfs_block_available_offset(fkfs_t *fs, fkfs_file_t *file, uint8_t priority, uint16_t required, uint8_t *buffer) {
     fkfs_entry_t *entry = (fkfs_entry_t *)buffer;
-    uint16_t offset = 0;
+    uint16_t offset = fs->header.offset;
+
+    #ifdef FKFS_DEBUG_VERBOSE
+    Serial.print("fkfs: block_available_offset ");
+    #endif
 
     do {
+        #ifdef FKFS_DEBUG_VERBOSE
+        Serial.print(offset);
+        Serial.print(" ");
+        #endif
+
         if (entry->file >= FKFS_FILES_MAX) {
+            #ifdef FKFS_DEBUG_VERBOSE
+            Serial.println("FILE");
+            #endif
             return offset;
         }
 
         if (entry->size == 0 || entry->size >= SD_RAW_BLOCK_SIZE ||
             entry->available == 0 || entry->available >= SD_RAW_BLOCK_SIZE) {
+            #ifdef FKFS_DEBUG_VERBOSE
+            Serial.println("SIZE");
+            #endif
             return offset;
         }
 
         uint8_t *data = ((uint8_t *)entry) + sizeof(fkfs_entry_t);
-        uint16_t expected = fkfs_block_crc(fs, entry, data);
+        uint16_t expected = fkfs_block_crc(fs, file, entry, data);
         if (entry->crc != expected) {
+            #ifdef FKFS_DEBUG_VERBOSE
+            Serial.println("CRC");
+            #endif
             return offset;
         }
 
         // We have precedence over this entry?
         if (fs->files[entry->file].priority > priority) {
             if (entry->available >= required) {
-                Serial.print("[");
+                #ifdef FKFS_DEBUG_VERBOSE
+                Serial.print(" [");
                 Serial.print(fs->files[entry->file].priority);
                 Serial.print(" > ");
-                Serial.print(priority);
+                Serial.print(priority, HEX);
                 Serial.print(" ");
                 Serial.print(entry->available);
                 Serial.print(" >= ");
                 Serial.print(required);
-                Serial.print("] ");
+                Serial.print("] PRI");
+                Serial.println();
+                #endif
 
                 return offset;
             }
         }
-        else {
-            Serial.print("!");
-        }
 
         uint16_t occupied = sizeof(fkfs_entry_t) + entry->available;
+
         offset += occupied;
         entry = (fkfs_entry_t *)(buffer + offset);
-
-        Serial.print(occupied);
-        Serial.print(" ");
     }
     while (offset + required < SD_RAW_BLOCK_SIZE);
+
+    #ifdef FKFS_DEBUG_VERBOSE
+    Serial.println("EOB");
+    #endif
 
     return UINT16_MAX;
 }
 
 static uint8_t fkfs_fsync(fkfs_t *fs) {
-    if (!sd_raw_write_block(&fs->sd, fs->header.block, (uint8_t *)fs->buffer)) {
-        return false;
+    if (fs->cachedBlockDirty) {
+        if (!sd_raw_write_block(&fs->sd, fs->header.block, (uint8_t *)fs->buffer)) {
+            return false;
+        }
+        fs->cachedBlockNumber = UINT32_MAX;
+        fs->cachedBlockDirty = false;
     }
 
     fs->header.generation++;
@@ -196,13 +230,18 @@ static uint8_t fkfs_fsync(fkfs_t *fs) {
     return true;
 }
 
-static uint8_t fkfs_file_allocate_block(fkfs_t *fs, uint8_t file, uint16_t required, uint16_t size, fkfs_entry_t *entry) {
+static uint8_t fkfs_file_allocate_block(fkfs_t *fs, uint8_t fileNumber, uint16_t required, uint16_t size, fkfs_entry_t *entry) {
+    fkfs_file_t *file = &fs->header.files[fileNumber];
     uint16_t newOffset = fs->header.offset;
 
-    Serial.print("fkfs_file_allocate_block(");
-    Serial.print(file); Serial.print(", ");
-    Serial.print(required); Serial.print(", ");
-    Serial.print(size); Serial.print(") #");
+    #ifdef FKFS_DEBUG_VERBOSE
+    Serial.print("fkfs: file_allocate_block(");
+    Serial.print(fileNumber);
+    Serial.print(", ");
+    Serial.print(required);
+    Serial.print(")");
+    Serial.println();
+    #endif
 
     do {
         if (required + newOffset >= SD_RAW_BLOCK_SIZE) {
@@ -212,8 +251,19 @@ static uint8_t fkfs_file_allocate_block(fkfs_t *fs, uint8_t file, uint16_t requi
                 }
             }
 
+            #ifdef FKFS_DEBUG_VERBOSE
+            Serial.print("fkfs: new block #");
+            Serial.print(fs->header.block + 1);
+            Serial.print(" required=");
+            Serial.print(required);
+            Serial.print(" offset=");
+            Serial.print(newOffset);
+            Serial.println();
+            #endif
+
             fs->header.block++;
             fs->header.offset = newOffset = 0;
+
             // Wrap around logic.
             if (fs->header.block == fs->numberOfBlocks - 2) {
                 fs->header.block = 1;
@@ -228,14 +278,7 @@ static uint8_t fkfs_file_allocate_block(fkfs_t *fs, uint8_t file, uint16_t requi
             fs->cachedBlockDirty = false;
         }
 
-        Serial.print(" #");
-        Serial.print(fs->header.block);
-        Serial.print(" = ");
-
-        newOffset = fkfs_block_available_offset(fs, fs->files[file].priority, required, fs->buffer);
-
-        Serial.println(newOffset);
-
+        newOffset = fkfs_block_available_offset(fs, file, fs->files[fileNumber].priority, required, fs->buffer);
         if (newOffset != UINT16_MAX) {
             fs->header.offset = newOffset;
             return true;
@@ -249,22 +292,39 @@ static uint8_t fkfs_file_allocate_block(fkfs_t *fs, uint8_t file, uint16_t requi
     return false;
 }
 
-uint8_t fkfs_file_append(fkfs_t *fs, uint8_t file, uint16_t size, uint8_t *data) {
-    uint16_t required = sizeof(fkfs_entry_t) + size;
+uint8_t fkfs_file_append(fkfs_t *fs, uint8_t fileNumber, uint16_t size, uint8_t *data) {
     fkfs_entry_t entry = { 0 };
+    fkfs_file_t *file = &fs->header.files[fileNumber];
 
+    uint16_t required = sizeof(fkfs_entry_t) + size;
     if (size == 0 || required >= SD_RAW_BLOCK_SIZE) {
         return false;
     }
 
-    if (!fkfs_file_allocate_block(fs, file, required, size, &entry)) {
+    if (!fkfs_file_allocate_block(fs, fileNumber, required, size, &entry)) {
         return false;
     }
 
-    entry.file = file;
+    #ifdef FKFS_DEBUG
+    Serial.print("fkfs: allocated f#");
+    Serial.print(fileNumber);
+    Serial.print(".");
+    Serial.print(fs->files[fileNumber].priority, HEX);
+    Serial.print(" ");
+    Serial.print(fs->header.block);
+    Serial.print("[");
+    Serial.print(fs->header.offset);
+    Serial.print("->");
+    Serial.print(fs->header.offset + required);
+    Serial.print("] ");
+    Serial.print(SD_RAW_BLOCK_SIZE - (fs->header.offset + required));
+    Serial.println();
+    #endif
+
+    entry.file = fileNumber;
     entry.size = size;
     entry.available = size;
-    entry.crc = fkfs_block_crc(fs, &entry, data);
+    entry.crc = fkfs_block_crc(fs, file, &entry, data);
 
     // TODO: Maybe just cast the buffer to this?
     memcpy(((uint8_t *)fs->buffer) + fs->header.offset, (uint8_t *)&entry, sizeof(fkfs_entry_t));
@@ -273,11 +333,20 @@ uint8_t fkfs_file_append(fkfs_t *fs, uint8_t file, uint16_t size, uint8_t *data)
     fs->cachedBlockDirty = true;
     fs->header.offset += required;
 
-    if (fs->files[file].sync) {
+    if (fs->files[fileNumber].sync) {
         if (!fkfs_fsync(fs)) {
             return false;
         }
     }
+
+    return true;
+}
+
+uint8_t fkfs_file_truncate(fkfs_t *fs, uint8_t fileNumber) {
+    fkfs_file_t *file = &fs->header.files[fileNumber];
+
+    file->version++;
+    file->startBlock = fs->header.block;
 
     return true;
 }

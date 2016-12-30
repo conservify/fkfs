@@ -13,6 +13,8 @@ const uint16_t SD_RAW_BLOCK_SIZE = 512;
 
 typedef struct fkfs_file_t {
     char name[12];
+    uint16_t version;
+    uint32_t startBlock;
 } __attribute__((packed)) fkfs_file_t;
 
 typedef struct fkfs_header_t {
@@ -52,12 +54,16 @@ const uint16_t FKFS_HEADER_SIZE_MINUS_CRC = offsetof(fkfs_header_t, crc);
 
 uint8_t fkfs_create(fkfs_t *fs);
 
-uint8_t fkfs_initialize_file(fkfs_t *fs, uint8_t id, uint8_t priority, uint8_t sync, const char *name);
+uint8_t fkfs_initialize_file(fkfs_t *fs, uint8_t fileNumber, uint8_t priority, uint8_t sync, const char *name);
 
 uint8_t fkfs_initialize(fkfs_t *fs, bool wipe);
 
-uint8_t fkfs_file_append(fkfs_t *fs, uint8_t id, uint16_t size, uint8_t *data);
+uint8_t fkfs_file_append(fkfs_t *fs, uint8_t fileNumber, uint16_t size, uint8_t *data);
+
+uint8_t fkfs_file_truncate(fkfs_t *fs, uint8_t fileNumber);
 
 uint8_t fkfs_log_statistics(fkfs_t *fs);
+
+
 
 #endif

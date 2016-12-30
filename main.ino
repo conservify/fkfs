@@ -24,6 +24,7 @@ void setup() {
     }
 
     randomSeed(83473);
+    randomSeed(analogRead(A0));
 
     fkfs_t fs;
     if (!fkfs_create(&fs)) {
@@ -53,7 +54,6 @@ void setup() {
 
     fkfs_log_statistics(&fs);
 
-
     for (uint8_t i = 0; i < 255; ++i) {
         uint8_t buffer[256];
         memzero(buffer, sizeof(buffer));
@@ -73,7 +73,7 @@ void setup() {
             }
         }
 
-        fkfs_log_statistics(&fs);
+        // fkfs_log_statistics(&fs);
     }
 }
 
