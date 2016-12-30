@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <Arduino.h>
 #include <SPI.h>
 
@@ -22,6 +23,8 @@ void setup() {
         delay(100);
     }
 
+    randomSeed(83473);
+
     fkfs_t fs;
     if (!fkfs_create(&fs)) {
         Serial.println("fkfs_create failed");
@@ -33,10 +36,6 @@ void setup() {
         return;
     }
 
-    uint32_t size = sd_raw_card_size(&fs.sd);
-    Serial.print("sd_raw: size (x512): ");
-    Serial.println(size);
-
     if (!fkfs_initialize_file(&fs, FKFS_FILE_LOG, FKFS_FILE_PRIORITY_LOWEST, false, "DEBUG.LOG")) {
         Serial.println("fkfs_initialize failed");
         return;
@@ -47,28 +46,29 @@ void setup() {
         return;
     }
 
-    if (!fkfs_initialize(&fs, false)) {
+    if (!fkfs_initialize(&fs, true)) {
         Serial.println("fkfs_initialize failed");
         return;
     }
 
     fkfs_log_statistics(&fs);
 
-    uint8_t buffer[24];
-    memzero(buffer, sizeof(buffer));
 
     for (uint8_t i = 0; i < 255; ++i) {
-        if (i % 5 == 0) {
-            memcpy(buffer, "World", 5);
-            if (!fkfs_file_append(&fs, FKFS_FILE_DATA, sizeof(buffer), buffer)) {
-                Serial.println("fkfs_file_append #1 failed");
+        uint8_t buffer[256];
+        memzero(buffer, sizeof(buffer));
+
+        if (random(10) < 3) {
+            memcpy(buffer, "DATA", 4);
+            if (!fkfs_file_append(&fs, FKFS_FILE_DATA, random(240) + 5, buffer)) {
+                Serial.println("fkfs_file_append failed");
                 return;
             }
         }
         else {
-            memcpy(buffer, "Hello", 5);
-            if (!fkfs_file_append(&fs, FKFS_FILE_LOG, sizeof(buffer), buffer)) {
-                Serial.println("fkfs_file_append #1 failed");
+            memcpy(buffer, "LOGS", 4);
+            if (!fkfs_file_append(&fs, FKFS_FILE_LOG, random(240) + 5, buffer)) {
+                Serial.println("fkfs_file_append failed");
                 return;
             }
         }

@@ -27,6 +27,7 @@ typedef struct fkfs_header_t {
 typedef struct fkfs_entry_t {
     uint8_t file;
     uint16_t size;
+    uint16_t available;
     uint16_t crc;
 } __attribute__((packed)) fkfs_entry_t;
 
@@ -37,13 +38,16 @@ typedef struct fkfs_file_runtime_settings_t {
 
 typedef struct fkfs_t {
     uint8_t headerIndex;
+    uint8_t cachedBlockDirty;
     uint32_t cachedBlockNumber;
+    uint32_t numberOfBlocks;
     fkfs_header_t header;
     sd_raw_t sd;
     uint8_t buffer[SD_RAW_BLOCK_SIZE];
     fkfs_file_runtime_settings_t files[FKFS_FILES_MAX];
 } fkfs_t;
 
+const uint16_t FKFS_ENTRY_SIZE_MINUS_CRC = offsetof(fkfs_entry_t, crc);
 const uint16_t FKFS_HEADER_SIZE_MINUS_CRC = offsetof(fkfs_header_t, crc);
 
 uint8_t fkfs_create(fkfs_t *fs);
