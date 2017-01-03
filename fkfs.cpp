@@ -17,6 +17,7 @@ static uint8_t fkfs_printf(const char *format, ...) {
 }
 
 #define FKFS_FIRST_BLOCK           6000
+#define FKFS_SEEK_BLOCKS_MAX       5
 
 // This is for testing wrap around.
 #define FKFS_TESTING_LAST_BLOCK    FKFS_FIRST_BLOCK + 100
@@ -247,6 +248,7 @@ static uint8_t fkfs_fsync(fkfs_t *fs) {
 static uint8_t fkfs_file_allocate_block(fkfs_t *fs, uint8_t fileNumber, uint16_t required, uint16_t size, fkfs_entry_t *entry) {
     fkfs_file_t *file = &fs->header.files[fileNumber];
     uint16_t newOffset = fs->header.offset;
+    uint16_t visitedBlocks = 0;
     uint32_t newBlock = fs->header.block;
 
     fkfs_log_verbose("fkfs: file_allocate_block(%d, %d)\r\n", fileNumber, required);
@@ -264,6 +266,7 @@ static uint8_t fkfs_file_allocate_block(fkfs_t *fs, uint8_t fileNumber, uint16_t
 
             fs->header.block++;
             fs->header.offset = newOffset = 0;
+            visitedBlocks++;
 
             // Wrap around logic.
             if (fs->header.block == fs->numberOfBlocks - 2 || fs->header.block == FKFS_TESTING_LAST_BLOCK) {
@@ -289,7 +292,7 @@ static uint8_t fkfs_file_allocate_block(fkfs_t *fs, uint8_t fileNumber, uint16_t
             newOffset = SD_RAW_BLOCK_SIZE; // Force a move to the following block.
         }
     }
-    while (true);
+    while (visitedBlocks < FKFS_SEEK_BLOCKS_MAX);
 
     return false;
 }
