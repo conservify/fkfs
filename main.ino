@@ -24,7 +24,16 @@ void setup() {
     }
 
     randomSeed(83473);
-    randomSeed(analogRead(A0));
+
+    uint32_t seed = 0;
+    for (uint8_t i = 0; i < 10; ++i) {
+        seed += analogRead(A0);
+        seed += analogRead(A1);
+        seed += analogRead(A3);
+        seed += analogRead(A4);
+    }
+    Serial.println(seed);
+    randomSeed(seed);
 
     fkfs_t fs;
     if (!fkfs_create(&fs)) {
@@ -54,7 +63,7 @@ void setup() {
 
     fkfs_log_statistics(&fs);
 
-    for (uint8_t i = 0; i < 255; ++i) {
+    for (uint16_t i = 0; i < 396; ++i) {
         uint8_t buffer[256];
         memzero(buffer, sizeof(buffer));
 
