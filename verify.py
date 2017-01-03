@@ -2,7 +2,7 @@ import re
 
 file = open("log.txt", "r")
 
-rows = [re.findall(r'allocated f#(\d+)\.(\d+).(\d+)\s+(\d+)\[(\d+)\s*->\s*(\d+)\]', line) for line in open('log.txt')]
+rows = [re.findall(r'allocated\s+f#(\d+)\.(\d+).(\d+)\s+(\d+)\[(\d+)\s*->\s*(\d+)\]', line) for line in open('log.txt')]
 matches = [x[0] for x in rows if x != []]
 
 class Allocation:
@@ -18,17 +18,18 @@ class Allocation:
         return set(self.r).intersection(other.r)
 
     def __repr__(self):
-        return "[{:d} {:d} {:d} {:d}]".format(self.file, self.priority, self.version, self.start, self.end)
+        return "[{:d} {:d} {:d} {:d} {:d}]".format(self.file, self.priority, self.version, self.start, self.end)
 
 class Block:
-    def __init__(self):
+    def __init__(self, number):
+        self.number = number
         self.allocated = []
-
 
     def allocate(self, allocation):
         for existing in self.allocated:
             if existing.overlaps(allocation):
-                print [existing, allocation]
+                if existing.priority < allocation.priority:
+                    print [self.number, existing, allocation]
         self.allocated.append(allocation)
 
 class Memory:
@@ -37,8 +38,8 @@ class Memory:
     def __init__(self):
         self.blocks = {}
 
-    def allocate(self, block, allocation):
-        block = self.blocks.setdefault(block, Block())
+    def allocate(self, blockNumber, allocation):
+        block = self.blocks.setdefault(blockNumber, Block(blockNumber))
         block.allocate(allocation)
 
 card = Memory()
