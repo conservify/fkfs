@@ -16,7 +16,7 @@ static uint8_t fkfs_printf(const char *format, ...) {
     return 0;
 }
 
-#define FKFS_FIRST_BLOCK         1
+#define FKFS_FIRST_BLOCK           6000
 
 // This is for testing wrap around.
 #define FKFS_TESTING_LAST_BLOCK    FKFS_FIRST_BLOCK + 100
