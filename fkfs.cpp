@@ -16,6 +16,8 @@ static uint8_t fkfs_printf(const char *format, ...) {
     return 0;
 }
 
+#define FKFS_FIRST_BLOCK         1
+
 #define fkfs_log(f, ...)         fkfs_printf(f, __VA_ARGS__)
 
 #define fkfs_log_verbose(f, ...)
@@ -70,7 +72,7 @@ uint8_t fkfs_initialize_file(fkfs_t *fs, uint8_t fileNumber, uint8_t priority, u
     fkfs_file_t *file = &fs->header.files[fileNumber];
     strncpy(file->name, name, sizeof(file->name));
     file->version = random(UINT16_MAX);
-    file->startBlock = 1;
+    file->startBlock = FKFS_FIRST_BLOCK;
 
     return true;
 }
@@ -112,7 +114,7 @@ uint8_t fkfs_initialize(fkfs_t *fs, bool wipe) {
             fs->header.files[i].version = random(UINT16_MAX);
             fkfs_printf("file.version = %d\r\n", fs->header.files[i].version);
         }
-        fs->header.block = 1;
+        fs->header.block = FKFS_FIRST_BLOCK;
 
         // TODO: This is unnecessary?
         if (!fkfs_header_write(fs, fs->buffer)) {
@@ -244,7 +246,7 @@ static uint8_t fkfs_file_allocate_block(fkfs_t *fs, uint8_t fileNumber, uint16_t
 
             // Wrap around logic.
             if (fs->header.block == fs->numberOfBlocks - 2) {
-                fs->header.block = 1;
+                fs->header.block = FKFS_FIRST_BLOCK;
             }
         }
 
@@ -283,8 +285,8 @@ uint8_t fkfs_file_append(fkfs_t *fs, uint8_t fileNumber, uint16_t size, uint8_t 
         return false;
     }
 
-    fkfs_log("fkfs: allocated f#%d.%-3d %3d[%-3d -> %-3d] %d\r\n",
-             fileNumber, fs->files[fileNumber].priority,
+    fkfs_log("fkfs: allocated f#%d.%-3d.%-5d %3d[%-3d -> %-3d] %d\r\n",
+             fileNumber, fs->files[fileNumber].priority, file->version,
              fs->header.block, fs->header.offset, fs->header.offset + required,
              SD_RAW_BLOCK_SIZE - (fs->header.offset + required));
 

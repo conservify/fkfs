@@ -72,8 +72,6 @@ void setup() {
                 return;
             }
         }
-
-        // fkfs_log_statistics(&fs);
     }
 }
 
