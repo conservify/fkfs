@@ -70,19 +70,29 @@ void setup() {
         if (random(10) < 3) {
             memcpy(buffer, "DATA", 4);
             if (!fkfs_file_append(&fs, FKFS_FILE_DATA, random(240) + 5, buffer)) {
-                Serial.println("fkfs_file_append failed");
-                return;
+                Serial.println("fkfs_file_append DATA failed");
             }
         }
         else {
             memcpy(buffer, "LOGS", 4);
             if (!fkfs_file_append(&fs, FKFS_FILE_LOG, random(240) + 5, buffer)) {
-                Serial.println("fkfs_file_append failed");
-                return;
+                Serial.println("fkfs_file_append LOGS failed");
             }
         }
     }
+
+    fkfs_file_iter_t iter = { 0 };
+    while (fkfs_file_iterate(&fs, FKFS_FILE_LOG, &iter)) {
+        Serial.print("fkfs: iter: ");
+        Serial.print(iter.block);
+        Serial.print(" ");
+        Serial.print(iter.offset);
+        Serial.print(" ");
+        Serial.print((char *)iter.data);
+        Serial.println();
+    }
 }
+
 
 void loop() {
 

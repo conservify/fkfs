@@ -95,6 +95,20 @@ static uint8_t fkfs_header_write(fkfs_t *fs, uint8_t *temp) {
     return true;
 }
 
+static uint8_t fkfs_block_ensure(fkfs_t *fs, uint32_t block) {
+    if (fs->cachedBlockDirty) {
+    }
+
+    if (fs->cachedBlockNumber != block) {
+        if (!sd_raw_read_block(&fs->sd, block, (uint8_t *)fs->buffer)) {
+            return false;
+        }
+        fs->cachedBlockNumber = block;
+        fs->cachedBlockDirty = false;
+    }
+    return true;
+}
+
 uint8_t fkfs_initialize(fkfs_t *fs, bool wipe) {
     fkfs_header_t *headers = (fkfs_header_t *)fs->buffer;
 
@@ -119,11 +133,6 @@ uint8_t fkfs_initialize(fkfs_t *fs, bool wipe) {
             fkfs_printf("file.version = %d\r\n", fs->header.files[i].version);
         }
         fs->header.block = FKFS_FIRST_BLOCK;
-
-        // TODO: This is unnecessary?
-        if (!fkfs_header_write(fs, fs->buffer)) {
-            return false;
-        }
     }
     else {
         if (!fkfs_header_crc_valid(&headers[1])) {
@@ -154,6 +163,7 @@ static uint16_t fkfs_block_crc(fkfs_t *fs, fkfs_file_t *file, fkfs_entry_t *entr
     return crc;
 }
 
+#define FKFS_OFFSET_SEARCH_STATUS_GOOD      0
 #define FKFS_OFFSET_SEARCH_STATUS_FILE      1
 #define FKFS_OFFSET_SEARCH_STATUS_SIZE      2
 #define FKFS_OFFSET_SEARCH_STATUS_CRC       3
@@ -165,6 +175,28 @@ typedef struct fkfs_offset_search_t {
     uint8_t status;
 } fkfs_offset_search_t;
 
+static uint8_t fkfs_block_check(fkfs_t *fs, uint8_t *ptr) {
+    fkfs_entry_t *entry = (fkfs_entry_t *)ptr;
+
+    if (entry->file >= FKFS_FILES_MAX) {
+        return FKFS_OFFSET_SEARCH_STATUS_SIZE;
+    }
+
+    if (entry->size == 0 || entry->size >= SD_RAW_BLOCK_SIZE ||
+        entry->available == 0 || entry->available >= SD_RAW_BLOCK_SIZE) {
+        return FKFS_OFFSET_SEARCH_STATUS_SIZE;
+    }
+
+    fkfs_file_t *blockFile = &fs->header.files[entry->file];
+    uint8_t *data = ptr + sizeof(fkfs_entry_t);
+    uint16_t expected = fkfs_block_crc(fs, blockFile, entry, data);
+    if (entry->crc != expected) {
+        return FKFS_OFFSET_SEARCH_STATUS_CRC;
+    }
+
+    return FKFS_OFFSET_SEARCH_STATUS_GOOD;
+}
+
 static uint8_t fkfs_block_available_offset(fkfs_t *fs, fkfs_file_t *file, uint8_t priority, uint16_t required, uint8_t *buffer, fkfs_offset_search_t *search) {
     uint8_t *iter = buffer + search->offset;
     fkfs_entry_t *entry = (fkfs_entry_t *)iter;
@@ -174,26 +206,20 @@ static uint8_t fkfs_block_available_offset(fkfs_t *fs, fkfs_file_t *file, uint8_
     do {
         fkfs_log_verbose("%d ", search->offset);
 
-        if (entry->file >= FKFS_FILES_MAX) {
+        search->status = fkfs_block_check(fs, iter);
+
+        switch (search->status) {
+        case FKFS_OFFSET_SEARCH_STATUS_FILE:
             fkfs_log_verbose("FILE %d\r\n", search->offset);
-            search->status = FKFS_OFFSET_SEARCH_STATUS_SIZE;
-            return true;
-        }
-
-        if (entry->size == 0 || entry->size >= SD_RAW_BLOCK_SIZE ||
-            entry->available == 0 || entry->available >= SD_RAW_BLOCK_SIZE) {
+            break;
+        case FKFS_OFFSET_SEARCH_STATUS_SIZE:
             fkfs_log_verbose("SIZE %d\r\n", search->offset);
-            search->status = FKFS_OFFSET_SEARCH_STATUS_SIZE;
             return true;
-        }
-
-        uint8_t *data = ((uint8_t *)entry) + sizeof(fkfs_entry_t);
-        fkfs_file_t *blockFile = &fs->header.files[entry->file];
-        uint16_t expected = fkfs_block_crc(fs, blockFile, entry, data);
-        if (entry->crc != expected) {
+        case FKFS_OFFSET_SEARCH_STATUS_CRC:
             fkfs_log_verbose("CRC %d\r\n", search->offset);
-            search->status = FKFS_OFFSET_SEARCH_STATUS_CRC;
             return true;
+        case FKFS_OFFSET_SEARCH_STATUS_GOOD:
+            break;
         }
 
         // We have precedence over this entry?
@@ -211,7 +237,8 @@ static uint8_t fkfs_block_available_offset(fkfs_t *fs, fkfs_file_t *file, uint8_
         uint16_t occupied = sizeof(fkfs_entry_t) + entry->available;
 
         search->offset += occupied;
-        entry = (fkfs_entry_t *)(buffer + search->offset);
+        iter = buffer + search->offset;
+        entry = (fkfs_entry_t *)iter;
     }
     while (search->offset + required < SD_RAW_BLOCK_SIZE);
 
@@ -348,6 +375,42 @@ uint8_t fkfs_file_truncate(fkfs_t *fs, uint8_t fileNumber) {
     file->startBlock = fs->header.block;
 
     return true;
+}
+
+uint8_t fkfs_file_iterate(fkfs_t *fs, uint8_t fileNumber, fkfs_file_iter_t *iter) {
+    fkfs_file_t *file = &fs->header.files[fileNumber];
+
+    if (iter->block == 0) {
+        iter->block = file->startBlock;
+        iter->offset = 0;
+    }
+
+    do {
+        if (!fkfs_block_ensure(fs, iter->block)) {
+            return false;
+        }
+
+        uint8_t *ptr = fs->buffer + iter->offset;
+        if (fkfs_block_check(fs, ptr) == FKFS_OFFSET_SEARCH_STATUS_GOOD) {
+            fkfs_entry_t *entry = (fkfs_entry_t *)ptr;
+            if (entry->file == fileNumber) {
+                iter->size = entry->size;
+                iter->data = ptr + sizeof(fkfs_entry_t);
+                iter->offset += entry->available;
+                return true;
+            }
+
+            iter->offset += entry->available;
+        }
+        else {
+            iter->block++;
+            iter->offset = 0;
+        }
+
+    }
+    while (true);
+
+    return iter->block <= fs->header.block;
 }
 
 uint8_t fkfs_log_statistics(fkfs_t *fs) {

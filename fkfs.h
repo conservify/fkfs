@@ -49,6 +49,14 @@ typedef struct fkfs_t {
     fkfs_file_runtime_settings_t files[FKFS_FILES_MAX];
 } fkfs_t;
 
+typedef struct fkfs_file_iter_t {
+    uint8_t file;
+    uint32_t block;
+    uint16_t offset;
+    uint8_t *data;
+    uint16_t size;
+};
+
 const uint16_t FKFS_ENTRY_SIZE_MINUS_CRC = offsetof(fkfs_entry_t, crc);
 const uint16_t FKFS_HEADER_SIZE_MINUS_CRC = offsetof(fkfs_header_t, crc);
 
@@ -64,6 +72,6 @@ uint8_t fkfs_file_truncate(fkfs_t *fs, uint8_t fileNumber);
 
 uint8_t fkfs_log_statistics(fkfs_t *fs);
 
-
+uint8_t fkfs_file_iterate(fkfs_t *fs, uint8_t fileNumber, fkfs_file_iter_t *iter);
 
 #endif
