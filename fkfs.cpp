@@ -129,6 +129,7 @@ uint8_t fkfs_initialize(fkfs_t *fs, bool wipe) {
 
         // New filesystem... initialize a blank header and new versions of all files.
         for (uint8_t i = 0; i < FKFS_FILES_MAX; ++i) {
+            // This isn't random enough, most likely.
             fs->header.files[i].version = random(UINT16_MAX);
             fkfs_printf("file.version = %d\r\n", fs->header.files[i].version);
         }
@@ -192,6 +193,7 @@ static uint8_t fkfs_block_check(fkfs_t *fs, uint8_t *ptr) {
         return FKFS_OFFSET_SEARCH_STATUS_SIZE;
     }
 
+    // TODO: This should really compare to the header adjusted lengths....
     if (entry->size == 0 || entry->size >= SD_RAW_BLOCK_SIZE ||
         entry->available == 0 || entry->available >= SD_RAW_BLOCK_SIZE) {
         return FKFS_OFFSET_SEARCH_STATUS_SIZE;
@@ -234,7 +236,7 @@ static uint8_t fkfs_block_available_offset(fkfs_t *fs, fkfs_file_t *file, uint8_
 
         // We have precedence over this entry?
         uint8_t blockPriority = fs->files[entry->file].priority;
-        if (blockPriority >= priority) {
+        if (blockPriority > priority) {
             if (entry->available >= required) {
                 search->status = FKFS_OFFSET_SEARCH_STATUS_PRIORITY;
                 fkfs_log_verbose(" [%d > %d][%d >= %d] PRI\r\n",
@@ -266,6 +268,10 @@ static uint8_t fkfs_fsync(fkfs_t *fs) {
         fs->cachedBlockNumber = UINT32_MAX;
         fs->cachedBlockDirty = false;
     }
+    else {
+        // No reason to write anything if there's nothing dirty.
+        return true;
+    }
 
     fs->header.generation++;
     fs->headerIndex = (fs->headerIndex + 1) % 2;
@@ -291,26 +297,30 @@ static uint8_t fkfs_file_allocate_block(fkfs_t *fs, uint8_t fileNumber, uint16_t
     fkfs_log_verbose("fkfs: file_allocate_block(%d, %d)\r\n", fileNumber, required);
 
     do {
-        if (required + newOffset >= SD_RAW_BLOCK_SIZE) {
+        // If we can't fit in the remainder of this block, we gotta move on.
+        if (required + newOffset > SD_RAW_BLOCK_SIZE) {
             fkfs_log_verbose("fkfs: new block #%d required=%d offset=%d\r\n",
                              fs->header.block + 1, required, newOffset);
 
-            if (fs->cachedBlockDirty) {
-                if (!fkfs_fsync(fs)) {
-                    return false;
-                }
+            // Flush any cached block before we move onto a new block.
+            if (!fkfs_fsync(fs)) {
+                return false;
             }
 
+            // Next block.
             fs->header.block++;
             fs->header.offset = newOffset = 0;
             visitedBlocks++;
 
-            // Wrap around logic.
+            // Wrap around logic, back to the beginning of the SD. It will now
+            // be important to look at priority and for old files.
             if (fs->header.block == fs->numberOfBlocks - 2 || fs->header.block == FKFS_TESTING_LAST_BLOCK) {
                 fs->header.block = FKFS_FIRST_BLOCK;
             }
         }
 
+        // If this isn't the block we have cached then read the block, this is
+        // for when we've moved to a new block or were just opened.
         if (fs->cachedBlockNumber != fs->header.block) {
             if (!sd_raw_read_block(&fs->sd, fs->header.block, (uint8_t *)fs->buffer)) {
                 return false;
@@ -319,9 +329,12 @@ static uint8_t fkfs_file_allocate_block(fkfs_t *fs, uint8_t fileNumber, uint16_t
             fs->cachedBlockDirty = false;
         }
 
+        // See if we can find a place for ourselves in the block. This involves
+        // looping over the existing chain of blocks.
         fkfs_offset_search_t search = { 0 };
         search.offset = newOffset;
         if (fkfs_block_available_offset(fs, file, fs->files[fileNumber].priority, required, fs->buffer, &search)) {
+            // We found a place to store the data.
             fs->header.offset = search.offset;
             return true;
         }
@@ -338,8 +351,10 @@ uint8_t fkfs_file_append(fkfs_t *fs, uint8_t fileNumber, uint16_t size, uint8_t 
     fkfs_entry_t entry = { 0 };
     fkfs_file_t *file = &fs->header.files[fileNumber];
 
+    // Just fail if we'll never be able to store this block. The upper layers
+    // should never allow this.
     uint16_t required = sizeof(fkfs_entry_t) + size;
-    if (size == 0 || required >= SD_RAW_BLOCK_SIZE) {
+    if (size == 0 || required > SD_RAW_BLOCK_SIZE) {
         return false;
     }
 
@@ -369,6 +384,9 @@ uint8_t fkfs_file_append(fkfs_t *fs, uint8_t fileNumber, uint16_t size, uint8_t 
     fs->cachedBlockDirty = true;
     fs->header.offset += required;
 
+    // If this file is configured to be fsync'd after every write that go ahead
+    // and do that here. Otherwise this will happen later, either manually or
+    // when we need to seek to a new block.
     if (fs->files[fileNumber].sync) {
         if (!fkfs_fsync(fs)) {
             return false;
@@ -381,6 +399,8 @@ uint8_t fkfs_file_append(fkfs_t *fs, uint8_t fileNumber, uint16_t size, uint8_t 
 uint8_t fkfs_file_truncate(fkfs_t *fs, uint8_t fileNumber) {
     fkfs_file_t *file = &fs->header.files[fileNumber];
 
+    // Bump versions so CRC checks fail on previous blocks and store the new
+    // starting block for the file.
     file->version++;
     file->startBlock = fs->header.block;
 
@@ -390,16 +410,19 @@ uint8_t fkfs_file_truncate(fkfs_t *fs, uint8_t fileNumber) {
 uint8_t fkfs_file_iterate(fkfs_t *fs, uint8_t fileNumber, fkfs_file_iter_t *iter) {
     fkfs_file_t *file = &fs->header.files[fileNumber];
 
+    // Begin with the first block in the file.
     if (iter->block == 0) {
         iter->block = file->startBlock;
         iter->offset = 0;
     }
 
     do {
+        // Make sure the block is loaded up into the cache.
         if (!fkfs_block_ensure(fs, iter->block)) {
             return false;
         }
 
+        // Find the next block of the file in the cached memory block.
         uint8_t *ptr = fs->buffer + iter->offset;
         if (fkfs_block_check(fs, ptr) == FKFS_OFFSET_SEARCH_STATUS_GOOD) {
             fkfs_entry_t *entry = (fkfs_entry_t *)ptr;
@@ -415,12 +438,17 @@ uint8_t fkfs_file_iterate(fkfs_t *fs, uint8_t fileNumber, fkfs_file_iter_t *iter
         else {
             iter->block++;
             iter->offset = 0;
+
+            // Wrap around logic, back to the beginning of the SD. It will now
+            // be important to look at priority and for old files.
+            if (fs->header.block == fs->numberOfBlocks - 2 || fs->header.block == FKFS_TESTING_LAST_BLOCK) {
+                fs->header.block = FKFS_FIRST_BLOCK;
+            }
         }
-
     }
-    while (true);
+    while (iter->block <= fs->header.block);
 
-    return iter->block <= fs->header.block;
+    return false;
 }
 
 uint8_t fkfs_log_statistics(fkfs_t *fs) {
