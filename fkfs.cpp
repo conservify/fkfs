@@ -154,6 +154,16 @@ uint8_t fkfs_initialize(fkfs_t *fs, bool wipe) {
     return true;
 }
 
+uint8_t fkfs_touch(fkfs_t *fs, uint32_t time) {
+    fs->header.time = time;
+
+    if (!fkfs_header_write(fs, fs->buffer)) {
+        return false;
+    }
+
+    return true;
+}
+
 static uint16_t fkfs_block_crc(fkfs_t *fs, fkfs_file_t *file, fkfs_entry_t *entry, uint8_t *data) {
     uint16_t crc = file->version;
 

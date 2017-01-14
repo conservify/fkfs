@@ -33,7 +33,7 @@ static uint8_t sd_raw_wait_not_busy(sd_raw_t *sd, uint16_t timeoutMs) {
 
 static uint8_t sd_raw_read_end(sd_raw_t *sd) {
     if (sd->inBlock) {
-        while (sd->offset++ < 514) { // I actually don't know why this is 514? -jlewallen
+        while (sd->offset++ < SD_RAW_BLOCK_SIZE + 2) { // I think this is block size + crc bytes.
             SPI.transfer(0xff);
         }
 
@@ -130,6 +130,7 @@ uint8_t sd_raw_initialize(sd_raw_t *sd, uint8_t pinCs) {
         if (sd_raw_command(sd, CMD58, 0)) {
             return sd_raw_error(sd, SD_CARD_ERROR_CMD58);
         }
+
         if ((SPI.transfer(0xff) & 0xc0) == 0xc0) {
             sd->type = SD_CARD_TYPE_SDHC;
         }
@@ -138,7 +139,6 @@ uint8_t sd_raw_initialize(sd_raw_t *sd, uint8_t pinCs) {
         for (uint8_t i = 0; i < 3; i++) {
             SPI.transfer(0xff);
         }
-
     }
 
     sd_raw_cs_high(sd);
@@ -181,6 +181,7 @@ static uint8_t sd_raw_read_register(sd_raw_t *sd, uint8_t command, void *buffer)
 
     SPI.transfer(0xff); // CRC byte
     SPI.transfer(0xff); // CRC byte
+
     sd_raw_cs_high(sd);
 
     return true;
@@ -201,7 +202,7 @@ static uint8_t sd_raw_read_data(sd_raw_t *sd, uint32_t block, uint16_t offset, u
         return true;
     }
 
-    if ((size + offset) > 512) {
+    if ((size + offset) > SD_RAW_BLOCK_SIZE) {
         return sd_raw_error(sd, SD_CARD_ERROR_GENERAL);
     }
 
@@ -233,14 +234,14 @@ static uint8_t sd_raw_read_data(sd_raw_t *sd, uint32_t block, uint16_t offset, u
     }
 
     sd->offset += size;
-    if (!partialBlockRead || sd->offset >= 512) {
+    if (!partialBlockRead || sd->offset >= SD_RAW_BLOCK_SIZE) {
         sd_raw_read_end(sd);
     }
     return true;
 }
 
 uint8_t sd_raw_read_block(sd_raw_t *sd, uint32_t block, uint8_t *destiny) {
-    return sd_raw_read_data(sd, block, 0, 512, destiny);
+    return sd_raw_read_data(sd, block, 0, SD_RAW_BLOCK_SIZE, destiny);
 }
 
 static uint8_t sd_raw_write_data(sd_raw_t *sd, uint8_t token, const uint8_t *source) {
@@ -253,10 +254,10 @@ static uint8_t sd_raw_write_data(sd_raw_t *sd, uint8_t token, const uint8_t *sou
     int16_t crc = 0xffff; // Dummy value
 
     #ifdef SD_RAW_CRC_SUPPORT
-    if(sd->writeCrc) {
+    if (sd->writeCrc) {
         int16_t i, x;
         // CRC16 code via Scott Dattalo www.dattalo.com
-        for (crc = i = 0; i < 512; i++) {
+        for (crc = i = 0; i < SD_RAW_BLOCK_SIZE; i++) {
             x   = ((crc >> 8) ^ source[i]) & 0xff;
             x  ^= x >> 4;
             crc = (crc << 8) ^ (x << 12) ^ (x << 5) ^ x;
@@ -266,7 +267,7 @@ static uint8_t sd_raw_write_data(sd_raw_t *sd, uint8_t token, const uint8_t *sou
 
     SPI.transfer(token);
 
-    for (uint16_t i = 0; i < 512; i++) {
+    for (uint16_t i = 0; i < SD_RAW_BLOCK_SIZE; i++) {
         SPI.transfer(source[i]);
     }
 

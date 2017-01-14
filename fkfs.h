@@ -9,7 +9,6 @@
 #define memzero(ptr, sz)          memset(ptr, 0, sz)
 
 const uint16_t FKFS_FILES_MAX = 4;
-const uint16_t SD_RAW_BLOCK_SIZE = 512;
 
 typedef struct fkfs_file_t {
     char name[12];
@@ -22,6 +21,7 @@ typedef struct fkfs_header_t {
     uint32_t generation;
     uint32_t block;
     uint16_t offset;
+    uint32_t time;
     fkfs_file_t files[FKFS_FILES_MAX];
     uint16_t crc;
 } __attribute__((packed)) fkfs_header_t;;
@@ -59,8 +59,11 @@ typedef struct fkfs_file_iter_t {
 
 const uint16_t FKFS_ENTRY_SIZE_MINUS_CRC = offsetof(fkfs_entry_t, crc);
 const uint16_t FKFS_HEADER_SIZE_MINUS_CRC = offsetof(fkfs_header_t, crc);
+const uint16_t FKFS_MAXIMUM_BLOCK_SIZE = SD_RAW_BLOCK_SIZE - sizeof(fkfs_entry_t);
 
 uint8_t fkfs_create(fkfs_t *fs);
+
+uint8_t fkfs_touch(fkfs_t *fs, uint32_t time);
 
 uint8_t fkfs_initialize_file(fkfs_t *fs, uint8_t fileNumber, uint8_t priority, uint8_t sync, const char *name);
 

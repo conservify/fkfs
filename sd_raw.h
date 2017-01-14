@@ -18,6 +18,8 @@ uint8_t sd_raw_write_block(sd_raw_t *sd, uint32_t block, const uint8_t *source);
 uint32_t sd_raw_card_size(sd_raw_t *sd);
 uint8_t sd_raw_erase(sd_raw_t *sd, uint32_t firstBlock, uint32_t lastBlock);
 
+const uint16_t SD_RAW_BLOCK_SIZE = 512;
+
 // CMD0 took too long.
 uint8_t const SD_CARD_ERROR_CMD0 = 0X1;
 // CMD8 was not accepted - not a valid SD card
