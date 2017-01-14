@@ -2,6 +2,9 @@
 #include <Arduino.h>
 #include <SPI.h>
 
+#include <stdarg.h>
+#include <stdio.h>
+
 #include "sd_raw.h"
 #include "fkfs.h"
 
@@ -12,6 +15,66 @@
 
 #define SD_PIN_CS1                        16
 #define SD_PIN_CS2                        4
+
+typedef struct fkfs_log_t {
+    fkfs_t *fs;
+    uint8_t file;
+    size_t position;
+    char buffer[FKFS_MAXIMUM_BLOCK_SIZE];
+} fkfs_log_t;
+
+uint8_t fkfs_log_initialize(fkfs_log_t *log, fkfs_t *fs, uint8_t file) {
+    log->buffer[0] = 0;
+    log->fs = fs;
+    log->file = file;
+
+    return true;
+}
+
+uint8_t fkfs_log_flush(fkfs_log_t *log) {
+    if (!fkfs_file_append(log->fs, log->file, log->position, (uint8_t *)log->buffer)) {
+        return false;
+    }
+
+    log->buffer[0] = 0;
+    log->position = 0;
+
+    return true;
+}
+
+uint8_t fkfs_log_append(fkfs_log_t *log, const char *str) {
+    size_t required = strlen(str);
+    const char *ptr = str;
+
+    while (required > 0) {
+        size_t available = FKFS_MAXIMUM_BLOCK_SIZE - log->position;
+        size_t copy = required > available ? available : required;
+
+        memcpy((uint8_t *)log->buffer + log->position, str, required);
+
+        log->position += copy;
+        required -= copy;
+        str += copy;
+
+        if (log->position >= FKFS_MAXIMUM_BLOCK_SIZE) {
+            if (!fkfs_log_flush(log)) {
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
+uint8_t fkfs_log_printf(fkfs_log_t *log, const char *format, ...) {
+    char incoming[FKFS_MAXIMUM_BLOCK_SIZE];
+    va_list args;
+    va_start(args, format);
+    size_t length = vsnprintf(incoming, sizeof(incoming), format, args);
+    va_end(args);
+
+    return fkfs_log_append(log, incoming);
+}
 
 void setup() {
     Serial.begin(119200);
@@ -36,7 +99,9 @@ void setup() {
     Serial.println(seed);
     randomSeed(seed);
 
-    fkfs_t fs;
+    fkfs_t fs = { 0 };
+    fkfs_log_t log = { 0 };
+
     if (!fkfs_create(&fs)) {
         Serial.println("fkfs_create failed");
         return;
@@ -59,6 +124,11 @@ void setup() {
         return;
     }
 
+    if (!fkfs_log_initialize(&log, &fs, FKFS_FILE_LOG)) {
+        Serial.println("fkfs_log_initialize failed");
+        return;
+    }
+
     if (!fkfs_initialize(&fs, true)) {
         Serial.println("fkfs_initialize failed");
         return;
@@ -77,9 +147,8 @@ void setup() {
             }
         }
         else {
-            memcpy(buffer, "LOGS", 4);
-            if (!fkfs_file_append(&fs, FKFS_FILE_LOG, random(240) + 5, buffer)) {
-                Serial.println("fkfs_file_append LOGS failed");
+            if (!fkfs_log_printf(&log, "Hello, world")) {
+                Serial.println("fkfs_log_append failed");
             }
         }
     }
