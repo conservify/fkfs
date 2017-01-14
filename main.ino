@@ -10,7 +10,8 @@
 #define FKFS_FILE_PRIORITY_LOWEST         255
 #define FKFS_FILE_PRIORITY_HIGHEST        0
 
-#define SD_PIN_CS                         16
+#define SD_PIN_CS1                        16
+#define SD_PIN_CS2                        4
 
 void setup() {
     Serial.begin(119200);
@@ -41,9 +42,11 @@ void setup() {
         return;
     }
 
-    if (!sd_raw_initialize(&fs.sd, SD_PIN_CS)) {
-        Serial.println("sd_raw_initialize failed");
-        return;
+    if (!sd_raw_initialize(&fs.sd, SD_PIN_CS1)) {
+        if (!sd_raw_initialize(&fs.sd, SD_PIN_CS2)) {
+            Serial.println("sd_raw_initialize failed");
+            return;
+        }
     }
 
     if (!fkfs_initialize_file(&fs, FKFS_FILE_LOG, FKFS_FILE_PRIORITY_LOWEST, false, "DEBUG.LOG")) {
