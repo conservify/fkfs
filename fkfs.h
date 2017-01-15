@@ -8,7 +8,7 @@
 
 #define memzero(ptr, sz)          memset(ptr, 0, sz)
 
-const uint16_t FKFS_FILES_MAX = 4;
+const uint16_t FKFS_FILES_MAX = 6;
 
 typedef struct fkfs_file_t {
     char name[12];
@@ -73,8 +73,8 @@ uint8_t fkfs_file_append(fkfs_t *fs, uint8_t fileNumber, uint16_t size, uint8_t 
 
 uint8_t fkfs_file_truncate(fkfs_t *fs, uint8_t fileNumber);
 
-uint8_t fkfs_log_statistics(fkfs_t *fs);
-
 uint8_t fkfs_file_iterate(fkfs_t *fs, uint8_t fileNumber, fkfs_file_iter_t *iter);
+
+uint8_t fkfs_log_statistics(fkfs_t *fs);
 
 #endif
