@@ -14,6 +14,43 @@
 #define SD_PIN_CS1                        16
 #define SD_PIN_CS2                        4
 
+typedef struct fkfs_single_record_t {
+    fkfs_t *fs;
+    uint8_t file;
+} fkfs_single_record_t;
+
+uint8_t fkfs_single_record_initialize(fkfs_single_record_t *sr, fkfs_t *fs, uint8_t file) {
+    sr->fs = fs;
+    sr->file = file;
+
+    return true;
+}
+
+uint8_t fkfs_single_record_read(fkfs_single_record_t *sr, uint8_t *ptr, uint16_t size) {
+    fkfs_file_iter_t iter = { 0 };
+
+    if (fkfs_file_iterate(sr->fs, FKFS_FILE_LOG, &iter)) {
+        if (iter.size != size) {
+            return false;
+        }
+
+        memcpy(ptr, iter.data, size);
+
+        // TODO: Should actually never be more than one block.
+        return true;
+    }
+
+    return false;
+}
+
+uint8_t fkfs_single_record_write(fkfs_single_record_t *sr, uint8_t *ptr, uint16_t size) {
+    if (!fkfs_file_truncate(sr->fs, sr->file)) {
+        return false;
+    }
+
+    return fkfs_file_append(sr->fs, sr->file, size, ptr);
+}
+
 void setup() {
     Serial.begin(119200);
 
