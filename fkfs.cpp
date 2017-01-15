@@ -24,7 +24,7 @@ static uint8_t fkfs_printf(const char *format, ...) {
 
 #define fkfs_log(f, ...)           fkfs_printf(f, __VA_ARGS__)
 
-#define fkfs_log_verbose(f, ...)   fkfs_printf(f, __VA_ARGS__)
+#define fkfs_log_verbose(f, ...)   // fkfs_printf(f, __VA_ARGS__)
 
 static uint32_t crc16_table[16] = {
     0x0000, 0xCC01, 0xD801, 0x1400, 0xF001, 0x3C00, 0x2800, 0xE401,
