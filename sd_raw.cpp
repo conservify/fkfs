@@ -13,11 +13,19 @@ static uint8_t sd_raw_cs_low(sd_raw_t *sd) {
     return true;
 }
 
-uint8_t sd_raw_wait_not_busy(sd_raw_t *sd, uint16_t timeoutMs) {
-    uint32_t t0 = millis();
+static uint8_t sd_raw_spi_read() {
+    return SPI.transfer(0xff);
+}
+
+static uint8_t sd_raw_spi_write(uint8_t value) {
+    return SPI.transfer(value);
+}
+
+uint8_t sd_raw_flush(sd_raw_t *sd, uint16_t timeoutMs) {
+    uint16_t t0 = millis();
 
     do {
-        if (SPI.transfer(0xff) == 0xff) {
+        if (sd_raw_spi_read() == 0xff) {
             return true;
         }
     }
@@ -29,7 +37,7 @@ uint8_t sd_raw_wait_not_busy(sd_raw_t *sd, uint16_t timeoutMs) {
 static uint8_t sd_raw_read_end(sd_raw_t *sd) {
     if (sd->inBlock) {
         while (sd->offset++ < SD_RAW_BLOCK_SIZE + 2) { // I think this is block size + crc bytes.
-            SPI.transfer(0xff);
+            sd_raw_spi_read();
         }
 
         sd_raw_cs_high(sd);
@@ -41,20 +49,20 @@ static uint8_t sd_raw_read_end(sd_raw_t *sd) {
 uint8_t sd_raw_command(sd_raw_t *sd, uint8_t command, uint32_t arg) {
     sd_raw_read_end(sd);
     sd_raw_cs_low(sd);
-    sd_raw_wait_not_busy(sd, 300);
+    sd_raw_flush(sd, 300);
 
-    SPI.transfer(command | 0x40);
+    sd_raw_spi_write(command | 0x40);
 
     for (int8_t s = 24; s >= 0; s -= 8) {
-        SPI.transfer(arg >> s);
+        sd_raw_spi_write(arg >> s);
     }
 
     uint8_t crc = 0xff;
     if (command == CMD0) crc = 0x95;  // Correct crc for CMD0 with arg 0
     if (command == CMD8) crc = 0x87;  // Correct crc for CMD8 with arg 0x1AA
-    SPI.transfer(crc);
+    sd_raw_spi_write(crc);
 
-    for (uint8_t i = 0; ((sd->status = SPI.transfer(0xff)) & 0x80) && i != 0xff; i++) {
+    for (uint8_t i = 0; ((sd->status = sd_raw_spi_read()) & 0x80) && i != 0xff; i++) {
     }
     return sd->status;
 }
@@ -70,12 +78,7 @@ uint8_t sd_raw_error(sd_raw_t *sd, uint32_t error) {
     return false;
 }
 
-uint8_t sd_raw_initialize(sd_raw_t *sd, uint8_t pinCs) {
-    sd->cs = pinCs;
-
-    pinMode(sd->cs, OUTPUT);
-    sd_raw_cs_high(sd);
-
+static uint8_t sd_raw_spi_configure() {
     SPI.begin();
     SPI.setClockDivider(255);
 
@@ -83,6 +86,19 @@ uint8_t sd_raw_initialize(sd_raw_t *sd, uint8_t pinCs) {
     for (uint8_t i = 0; i < 10; i++) {
         SPI.transfer(0xff);
     }
+
+    SPI.setClockDivider(SPI_FULL_SPEED);
+
+    return true;
+}
+
+uint8_t sd_raw_initialize(sd_raw_t *sd, uint8_t pinCs) {
+    sd->cs = pinCs;
+
+    pinMode(sd->cs, OUTPUT);
+    sd_raw_cs_high(sd);
+
+    sd_raw_spi_configure();
 
     sd_raw_cs_low(sd);
 
@@ -101,7 +117,7 @@ uint8_t sd_raw_initialize(sd_raw_t *sd, uint8_t pinCs) {
     } else {
         // Only need last byte of r7 response
         for (uint8_t i = 0; i < 4; i++) {
-            sd->status = SPI.transfer(0xff);
+            sd->status = sd_raw_spi_read();
         }
 
         if (sd->status != 0xAA) {
@@ -126,19 +142,17 @@ uint8_t sd_raw_initialize(sd_raw_t *sd, uint8_t pinCs) {
             return sd_raw_error(sd, SD_CARD_ERROR_CMD58);
         }
 
-        if ((SPI.transfer(0xff) & 0xc0) == 0xc0) {
+        if ((sd_raw_spi_read() & 0xc0) == 0xc0) {
             sd->type = SD_CARD_TYPE_SDHC;
         }
 
         // Discard rest of ocr - contains allowed voltage range
         for (uint8_t i = 0; i < 3; i++) {
-            SPI.transfer(0xff);
+            sd_raw_spi_read();
         }
     }
 
     sd_raw_cs_high(sd);
-
-    SPI.setClockDivider(SPI_FULL_SPEED);
 
     return true;
 }
@@ -146,7 +160,7 @@ uint8_t sd_raw_initialize(sd_raw_t *sd, uint8_t pinCs) {
 uint8_t sd_wait_start_block(sd_raw_t *sd) {
     uint32_t t0 = millis();
 
-    while ((sd->status = SPI.transfer(0xff)) == 0xff) {
+    while ((sd->status = sd_raw_spi_read()) == 0xff) {
         if (((uint32_t)millis() - t0) > SD_RAW_READ_TIMEOUT) {
             return sd_raw_error(sd, SD_CARD_ERROR_READ_TIMEOUT);
         }
@@ -171,11 +185,11 @@ static uint8_t sd_raw_read_register(sd_raw_t *sd, uint8_t command, void *buffer)
     }
 
     for (uint16_t i = 0; i < 16; i++) {
-        destiny[i] = SPI.transfer(0xff);
+        destiny[i] = sd_raw_spi_read();
     }
 
-    SPI.transfer(0xff); // CRC byte
-    SPI.transfer(0xff); // CRC byte
+    sd_raw_spi_read(); // CRC byte
+    sd_raw_spi_read(); // CRC byte
 
     sd_raw_cs_high(sd);
 
@@ -222,10 +236,10 @@ static uint8_t sd_raw_read_data(sd_raw_t *sd, uint32_t block, uint16_t offset, u
 
     // Skip data before offset
     for (; sd->offset < offset; sd->offset++) {
-        SPI.transfer(0xff);
+        sd_raw_spi_read();
     }
     for (uint16_t i = 0; i < size; i++) {
-        destiny[i] = SPI.transfer(0xff);
+        destiny[i] = sd_raw_spi_read();
     }
 
     sd->offset += size;
@@ -260,16 +274,16 @@ static uint8_t sd_raw_write_data(sd_raw_t *sd, uint8_t token, const uint8_t *sou
     }
     #endif // SD_RAW_CRC_SUPPORT
 
-    SPI.transfer(token);
+    sd_raw_spi_write(token);
 
     for (uint16_t i = 0; i < SD_RAW_BLOCK_SIZE; i++) {
-        SPI.transfer(source[i]);
+        sd_raw_spi_write(source[i]);
     }
 
-    SPI.transfer(crc >> 8);
-    SPI.transfer(crc);
+    sd_raw_spi_write(crc >> 8);
+    sd_raw_spi_write(crc);
 
-    sd->status = SPI.transfer(0xff);
+    sd->status = sd_raw_spi_read();
 
     if ((sd->status & DATA_RES_MASK) != DATA_RES_ACCEPTED) {
         return sd_raw_error(sd, SD_CARD_ERROR_WRITE);
@@ -298,12 +312,12 @@ uint8_t sd_raw_write_block(sd_raw_t *sd, uint32_t block, const uint8_t *source) 
     }
 
     // Wait for flash programming to complete
-    if (!sd_raw_wait_not_busy(sd, SD_RAW_WRITE_TIMEOUT)) {
+    if (!sd_raw_flush(sd, SD_RAW_WRITE_TIMEOUT)) {
         return sd_raw_error(sd, SD_CARD_ERROR_WRITE_TIMEOUT);
     }
 
     // Response is r2 so get and check two bytes for nonzero
-    if (sd_raw_command(sd, CMD13, 0) || SPI.transfer(0xff)) {
+    if (sd_raw_command(sd, CMD13, 0) || sd_raw_spi_read()) {
         return sd_raw_error(sd, SD_CARD_ERROR_WRITE_PROGRAMMING);
     }
 
@@ -355,7 +369,7 @@ uint8_t sd_raw_erase(sd_raw_t *sd, uint32_t firstBlock, uint32_t lastBlock) {
         return sd_raw_error(sd, SD_CARD_ERROR_ERASE);
     }
 
-    if (!sd_raw_wait_not_busy(sd, SD_RAW_ERASE_TIMEOUT)) {
+    if (!sd_raw_flush(sd, SD_RAW_ERASE_TIMEOUT)) {
         return sd_raw_error(sd, SD_CARD_ERROR_ERASE_TIMEOUT);
     }
 

@@ -1,7 +1,7 @@
 #ifndef SD_RAW_INTERNAL_H_INCLUDED
 #define SD_RAW_INTERNAL_H_INCLUDED
 
-uint8_t sd_raw_wait_not_busy(sd_raw_t *sd, uint16_t timeoutMs);
+uint8_t sd_raw_flush(sd_raw_t *sd, uint16_t timeoutMs);
 uint8_t sd_wait_start_block(sd_raw_t *sd);
 uint8_t sd_raw_command(sd_raw_t *sd, uint8_t command, uint32_t arg);
 uint8_t sd_raw_error(sd_raw_t *sd, uint32_t error);

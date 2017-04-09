@@ -88,7 +88,7 @@ uint8_t sd_raw_dma_write_block(sd_raw_dma_t *sd_dma, uint32_t block) {
         return sd_raw_error(sd_dma->sd, SD_CARD_ERROR_WRITE);
     }
 
-    if (!sd_raw_wait_not_busy(sd_dma->sd, SD_RAW_WRITE_TIMEOUT)) {
+    if (!sd_raw_flush(sd_dma->sd, SD_RAW_WRITE_TIMEOUT)) {
         return sd_raw_error(sd_dma->sd, SD_CARD_ERROR_WRITE_TIMEOUT);
     }
 
