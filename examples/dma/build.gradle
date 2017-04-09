@@ -13,12 +13,15 @@ import com.github.jlewallen.arduino.*
 
 model {
     components {
-        simon(ArduinoComponentSpec) {
+        dma(ArduinoComponentSpec) {
             boards = [ "adafruit:samd:adafruit_feather_m0" ]
             libraries = [
                 "SPI",
                 "https://github.com/Conservify/Adafruit_ASFcore.git",
                 "https://github.com/adafruit/Adafruit_ZeroDMA.git"
+            ]
+            additionalSources = [
+                "../../"
             ]
             userCppSourcesFlags = "-Wall"
             userCSourcesFlags = "-Wall"

@@ -3,7 +3,7 @@
 #include <SPI.h>
 
 #include "sd_raw.h"
-#include "sd_raw_internal.h"
+#include "sd_raw_dma.h"
 
 #define FKFS_FILE_LOG                     0
 #define FKFS_FILE_DATA                    1
@@ -12,6 +12,8 @@
 
 #define SD_PIN_CS1                        16
 #define SD_PIN_CS2                        4
+
+#define DATA_LENGTH                       512
 
 void log_buffer(uint8_t *buffer) {
     for (uint32_t i = 0; i < DATA_LENGTH; i++) {
@@ -43,7 +45,6 @@ void setup() {
     }
 
     uint8_t status;
-    #define DATA_LENGTH 512
     uint8_t source_memory[DATA_LENGTH];
     uint8_t destination_memory[DATA_LENGTH];
 
