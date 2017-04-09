@@ -15,7 +15,11 @@ model {
     components {
         simon(ArduinoComponentSpec) {
             boards = [ "adafruit:samd:adafruit_feather_m0" ]
-            libraries = [ "SPI" ]
+            libraries = [
+                "SPI",
+                "https://github.com/Conservify/Adafruit_ASFcore.git",
+                "https://github.com/adafruit/Adafruit_ZeroDMA.git"
+            ]
             userCppSourcesFlags = "-Wall"
             userCSourcesFlags = "-Wall"
         }

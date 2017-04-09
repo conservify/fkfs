@@ -3,11 +3,6 @@
 
 #include <SPI.h>
 
-const uint32_t SD_RAW_INIT_TIMEOUT = 2 * 1000;
-const uint32_t SD_RAW_READ_TIMEOUT = 300;
-const uint32_t SD_RAW_WRITE_TIMEOUT = 600;
-const uint32_t SD_RAW_ERASE_TIMEOUT = 10 * 1000;
-
 static uint8_t sd_raw_cs_high(sd_raw_t *sd) {
     digitalWrite(sd->cs, HIGH);
     return true;
@@ -18,7 +13,6 @@ static uint8_t sd_raw_cs_low(sd_raw_t *sd) {
     return true;
 }
 
-static uint8_t sd_raw_wait_not_busy(sd_raw_t *sd, uint16_t timeoutMs) {
 uint8_t sd_raw_wait_not_busy(sd_raw_t *sd, uint16_t timeoutMs) {
     uint32_t t0 = millis();
 
@@ -44,7 +38,7 @@ static uint8_t sd_raw_read_end(sd_raw_t *sd) {
     return true;
 }
 
-static uint8_t sd_raw_command(sd_raw_t *sd, uint8_t command, uint32_t arg) {
+uint8_t sd_raw_command(sd_raw_t *sd, uint8_t command, uint32_t arg) {
     sd_raw_read_end(sd);
     sd_raw_cs_low(sd);
     sd_raw_wait_not_busy(sd, 300);
@@ -70,7 +64,7 @@ static uint8_t sd_raw_acommand(sd_raw_t *sd, uint8_t command, uint32_t arg) {
     return sd_raw_command(sd, command, arg);
 }
 
-static uint8_t sd_raw_error(sd_raw_t *sd, uint32_t error) {
+uint8_t sd_raw_error(sd_raw_t *sd, uint32_t error) {
     sd_raw_cs_high(sd);
     sd->status = error;
     return false;
@@ -149,7 +143,7 @@ uint8_t sd_raw_initialize(sd_raw_t *sd, uint8_t pinCs) {
     return true;
 }
 
-static uint8_t sd_wait_start_block(sd_raw_t *sd) {
+uint8_t sd_wait_start_block(sd_raw_t *sd) {
     uint32_t t0 = millis();
 
     while ((sd->status = SPI.transfer(0xff)) == 0xff) {

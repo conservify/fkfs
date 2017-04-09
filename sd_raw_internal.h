@@ -1,6 +1,16 @@
 #ifndef SD_RAW_INTERNAL_H_INCLUDED
 #define SD_RAW_INTERNAL_H_INCLUDED
 
+uint8_t sd_raw_wait_not_busy(sd_raw_t *sd, uint16_t timeoutMs);
+uint8_t sd_wait_start_block(sd_raw_t *sd);
+uint8_t sd_raw_command(sd_raw_t *sd, uint8_t command, uint32_t arg);
+uint8_t sd_raw_error(sd_raw_t *sd, uint32_t error);
+
+uint32_t const SD_RAW_INIT_TIMEOUT = 2 * 1000;
+uint32_t const SD_RAW_READ_TIMEOUT = 300;
+uint32_t const SD_RAW_WRITE_TIMEOUT = 600;
+uint32_t const SD_RAW_ERASE_TIMEOUT = 10 * 1000;
+
 // GO_IDLE_STATE - init card in spi mode if CS low
 uint8_t const CMD0 = 0X00;
 // SEND_IF_COND - verify SD Memory Card interface operating condition.
