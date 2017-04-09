@@ -19,14 +19,15 @@ static uint8_t sd_raw_cs_low(sd_raw_t *sd) {
 }
 
 static uint8_t sd_raw_wait_not_busy(sd_raw_t *sd, uint16_t timeoutMs) {
-    uint16_t t0 = millis();
+uint8_t sd_raw_wait_not_busy(sd_raw_t *sd, uint16_t timeoutMs) {
+    uint32_t t0 = millis();
 
     do {
         if (SPI.transfer(0xff) == 0xff) {
             return true;
         }
     }
-    while (((uint16_t)millis() - t0) < timeoutMs);
+    while (((uint32_t)millis() - t0) < timeoutMs);
 
     return false;
 }
@@ -95,7 +96,7 @@ uint8_t sd_raw_initialize(sd_raw_t *sd, uint8_t pinCs) {
 
     // Command to go idle in SPI mode
     while ((sd->status = sd_raw_command(sd, CMD0, 0)) != R1_IDLE_STATE) {
-        if (((uint16_t)millis() - t0) > SD_RAW_INIT_TIMEOUT) {
+        if (((uint32_t)millis() - t0) > SD_RAW_INIT_TIMEOUT) {
             return sd_raw_error(sd, SD_CARD_ERROR_CMD0);
         }
     }
@@ -120,7 +121,7 @@ uint8_t sd_raw_initialize(sd_raw_t *sd, uint8_t pinCs) {
 
     while ((sd->status = sd_raw_acommand(sd, ACMD41, arg)) != R1_READY_STATE) {
         // Check for timeout
-        if (((uint16_t)millis() - t0) > SD_RAW_INIT_TIMEOUT) {
+        if (((uint32_t)millis() - t0) > SD_RAW_INIT_TIMEOUT) {
             return sd_raw_error(sd, SD_CARD_ERROR_ACMD41);
         }
     }
@@ -149,10 +150,10 @@ uint8_t sd_raw_initialize(sd_raw_t *sd, uint8_t pinCs) {
 }
 
 static uint8_t sd_wait_start_block(sd_raw_t *sd) {
-    uint16_t t0 = millis();
+    uint32_t t0 = millis();
 
     while ((sd->status = SPI.transfer(0xff)) == 0xff) {
-        if (((uint16_t)millis() - t0) > SD_RAW_READ_TIMEOUT) {
+        if (((uint32_t)millis() - t0) > SD_RAW_READ_TIMEOUT) {
             return sd_raw_error(sd, SD_CARD_ERROR_READ_TIMEOUT);
         }
     }
