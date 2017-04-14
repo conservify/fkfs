@@ -7,7 +7,9 @@ static void dma_tx_callback(struct dma_resource *const resource) {
 
 }
 
-static void setup_transfer_descriptor(DmacDescriptor *descriptor, void *source_memory, void *destination_memory, uint32_t transfer_count, dma_beat_size beat_size, bool source_increment, bool destination_increment) {
+static void setup_transfer_descriptor(DmacDescriptor *descriptor, void *source_memory, void *destination_memory,
+                                      uint32_t transfer_count, dma_beat_size beat_size,
+                                      bool source_increment, bool destination_increment) {
     uint8_t bytes_per_beat;
     dma_descriptor_config descriptor_config;
 
