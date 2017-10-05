@@ -369,7 +369,8 @@ uint8_t fkfs_file_append(fkfs_t *fs, uint8_t fileNumber, uint16_t size, uint8_t 
 
     fkfs_log("fkfs: allocated  f#%d.%-3d.%-5d %3d[%-3d -> %-3d] %d\r\n",
              fileNumber, fs->files[fileNumber].priority, file->version,
-             fs->header.block, fs->header.offset, fs->header.offset + required,
+             fs->header.block,
+             fs->header.offset, fs->header.offset + required,
              SD_RAW_BLOCK_SIZE - (fs->header.offset + required));
 
     entry.file = fileNumber;

@@ -22,7 +22,7 @@ static uint8_t sd_raw_spi_write(uint8_t value) {
 }
 
 uint8_t sd_raw_flush(sd_raw_t *sd, uint16_t timeoutMs) {
-    uint16_t t0 = millis();
+    uint32_t t0 = millis();
 
     do {
         if (sd_raw_spi_read() == 0xff) {
