@@ -53,6 +53,11 @@ static uint16_t crc16_update(uint16_t start, uint8_t *p, uint16_t n) {
 }
 
 static uint8_t fkfs_header_crc_valid(fkfs_header_t *header) {
+    // Is this a good idea?
+    if (header->crc == 0) {
+        return false;
+    }
+
     uint16_t actual = crc16_update(0, (uint8_t *)header, FKFS_HEADER_SIZE_MINUS_CRC);
     return header->crc == actual;
 }
