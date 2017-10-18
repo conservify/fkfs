@@ -65,6 +65,8 @@ uint8_t fkfs_create(fkfs_t *fs);
 
 uint8_t fkfs_touch(fkfs_t *fs, uint32_t time);
 
+uint8_t fkfs_flush(fkfs_t *fs);
+
 uint8_t fkfs_initialize_file(fkfs_t *fs, uint8_t fileNumber, uint8_t priority, uint8_t sync, const char *name);
 
 uint8_t fkfs_initialize(fkfs_t *fs, bool wipe);

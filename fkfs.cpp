@@ -165,6 +165,10 @@ uint8_t fkfs_touch(fkfs_t *fs, uint32_t time) {
     return true;
 }
 
+uint8_t fkfs_flush(fkfs_t *fs) {
+    return fkfs_touch(fs, millis());
+}
+
 static uint16_t fkfs_block_crc(fkfs_t *fs, fkfs_file_t *file, fkfs_entry_t *entry, uint8_t *data) {
     uint16_t crc = file->version;
 
