@@ -86,14 +86,22 @@ uint8_t fkfs_initialize_file(fkfs_t *fs, uint8_t fileNumber, uint8_t priority, u
     return true;
 }
 
-static uint8_t fkfs_header_write(fkfs_t *fs, uint8_t *temp) {
-    fkfs_header_t *headers = (fkfs_header_t *)temp;
+static uint8_t fkfs_header_write(fkfs_t *fs, bool wipe) {
+    uint8_t buffer[SD_RAW_BLOCK_SIZE] = { 0 };
+
+    if (!wipe) {
+        if (!sd_raw_read_block(&fs->sd, 0, (uint8_t *)buffer)) {
+            return false;
+        }
+    }
+
+    fkfs_header_t *headers = (fkfs_header_t *)buffer;
 
     fkfs_header_crc_update(&fs->header);
 
     memcpy((void *)&headers[fs->headerIndex], (void *)&fs->header, sizeof(fkfs_header_t));
 
-    if (!sd_raw_write_block(&fs->sd, 0, (uint8_t *)temp)) {
+    if (!sd_raw_write_block(&fs->sd, 0, (uint8_t *)buffer)) {
         return false;
     }
 
@@ -115,8 +123,6 @@ static uint8_t fkfs_block_ensure(fkfs_t *fs, uint32_t block) {
 }
 
 uint8_t fkfs_initialize(fkfs_t *fs, bool wipe) {
-    fkfs_header_t *headers = (fkfs_header_t *)fs->buffer;
-
     fs->numberOfBlocks = sd_raw_card_size(&fs->sd);
 
     memzero(fs->buffer, sizeof(SD_RAW_BLOCK_SIZE));
@@ -125,11 +131,11 @@ uint8_t fkfs_initialize(fkfs_t *fs, bool wipe) {
         return false;
     }
 
+    fkfs_header_t *headers = (fkfs_header_t *)fs->buffer;
+
     // If both checksums fail, then we're on a new card.
     // TODO: May want to make this configurable?
-    if ((!fkfs_header_crc_valid(&headers[0]) &&
-         !fkfs_header_crc_valid(&headers[1])) || wipe) {
-
+    if (wipe || (!fkfs_header_crc_valid(&headers[0]) && !fkfs_header_crc_valid(&headers[1]))) {
         fkfs_printf("fkfs: initialize/wipe\r\n");
 
         // New filesystem... initialize a blank header and new versions of all files.
@@ -139,6 +145,10 @@ uint8_t fkfs_initialize(fkfs_t *fs, bool wipe) {
             fkfs_printf("file.version = %d\r\n", fs->header.files[i].version);
         }
         fs->header.block = FKFS_FIRST_BLOCK;
+
+        if (!fkfs_header_write(fs, true)) {
+            return false;
+        }
     }
     else {
         if (!fkfs_header_crc_valid(&headers[1])) {
@@ -163,7 +173,7 @@ uint8_t fkfs_initialize(fkfs_t *fs, bool wipe) {
 uint8_t fkfs_touch(fkfs_t *fs, uint32_t time) {
     fs->header.time = time;
 
-    if (!fkfs_header_write(fs, fs->buffer)) {
+    if (!fkfs_header_write(fs, false)) {
         return false;
     }
 
@@ -285,7 +295,7 @@ static uint8_t fkfs_fsync(fkfs_t *fs) {
     fs->header.generation++;
     fs->headerIndex = (fs->headerIndex + 1) % 2;
 
-    if (!fkfs_header_write(fs, fs->buffer)) {
+    if (!fkfs_header_write(fs, false)) {
         return false;
     }
 
