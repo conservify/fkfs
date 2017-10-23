@@ -53,11 +53,6 @@ static uint16_t crc16_update(uint16_t start, uint8_t *p, uint16_t n) {
 }
 
 static uint8_t fkfs_header_crc_valid(fkfs_header_t *header) {
-    // Is this a good idea?
-    if (header->crc == 0) {
-        return false;
-    }
-
     uint16_t actual = crc16_update(0, (uint8_t *)header, FKFS_HEADER_SIZE_MINUS_CRC);
     return header->crc == actual;
 }
@@ -144,9 +139,18 @@ uint8_t fkfs_initialize(fkfs_t *fs, bool wipe) {
             fs->header.files[i].version = random(UINT16_MAX);
             fkfs_printf("file.version = %d\r\n", fs->header.files[i].version);
         }
+
         fs->header.block = FKFS_FIRST_BLOCK;
+        fs->header.generation = 0;
 
         if (!fkfs_header_write(fs, true)) {
+            return false;
+        }
+
+        fs->header.generation = 1;
+        fs->headerIndex = 1;
+
+        if (!fkfs_header_write(fs, false)) {
             return false;
         }
     }
