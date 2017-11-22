@@ -3,6 +3,7 @@
 #include "sd_raw_dma.h"
 #include "sd_raw_internal.h"
 
+/*
 static void dma_tx_callback(struct dma_resource *const resource) {
 
 }
@@ -36,8 +37,10 @@ static void setup_transfer_descriptor(DmacDescriptor *descriptor, void *source_m
 
     dma_descriptor_create(descriptor, &descriptor_config);
 }
+*/
 
 uint8_t sd_raw_dma_initialize(sd_raw_dma_t *sd_dma, sd_raw_t *sd, uint8_t *source_memory, uint8_t *destination_memory, size_t length) {
+    /*
     dma_resource_config _config;
 
     sd_dma->sd = sd;
@@ -62,11 +65,12 @@ uint8_t sd_raw_dma_initialize(sd_raw_dma_t *sd_dma, sd_raw_t *sd, uint8_t *sourc
     dma_allocate(&sd_dma->rx_resource, &_config);
     setup_transfer_descriptor(&sd_dma->rx_descriptor, (void *)(&SERCOM4->SPI.DATA.reg), destination_memory, length, DMA_BEAT_SIZE_BYTE, false, true);
     dma_add_descriptor(&sd_dma->rx_resource, &sd_dma->rx_descriptor);
-
+    */
     return true;
 }
 
 uint8_t sd_raw_dma_write_block(sd_raw_dma_t *sd_dma, uint32_t block) {
+    /*
     if (sd_raw_command(sd_dma->sd, CMD24, block)) {
         return sd_raw_error(sd_dma->sd, SD_CARD_ERROR_CMD24);
     }
@@ -97,11 +101,13 @@ uint8_t sd_raw_dma_write_block(sd_raw_dma_t *sd_dma, uint32_t block) {
     if (sd_raw_command(sd_dma->sd, CMD13, 0) || SPI.transfer(0xff)) {
         return sd_raw_error(sd_dma->sd, SD_CARD_ERROR_WRITE_PROGRAMMING);
     }
+    */
 
     return true;
 }
 
 uint8_t sd_raw_dma_read_block(sd_raw_dma_t *sd_dma, uint32_t block) {
+    /*
     if (sd_raw_command(sd_dma->sd, CMD17, block)) {
         return sd_raw_error(sd_dma->sd, SD_CARD_ERROR_CMD17);
     }
@@ -120,5 +126,6 @@ uint8_t sd_raw_dma_read_block(sd_raw_dma_t *sd_dma, uint32_t block) {
 
     SPI.endTransaction();
 
+    */
     return true;
 }
