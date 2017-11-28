@@ -5,7 +5,7 @@
 
 #include "sd_raw.h"
 
-#include "utility/dma.h"
+// #include "utility/dma.h"
 
 typedef struct sd_raw_dma_t {
     sd_raw_t *sd;
