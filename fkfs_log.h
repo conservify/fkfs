@@ -22,4 +22,4 @@ uint8_t fkfs_log_append(fkfs_log_t *log, const char *str);
 
 uint8_t fkfs_log_printf(fkfs_log_t *log, const char *format, ...);
 
-#endif FKFS_LOG_H_INCLUDED
+#endif
