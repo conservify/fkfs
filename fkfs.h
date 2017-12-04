@@ -55,7 +55,7 @@ typedef struct fkfs_file_iter_t {
     uint16_t offset;
     uint8_t *data;
     uint16_t size;
-};
+} fkfs_file_iter_t;
 
 const uint16_t FKFS_ENTRY_SIZE_MINUS_CRC = offsetof(fkfs_entry_t, crc);
 const uint16_t FKFS_HEADER_SIZE_MINUS_CRC = offsetof(fkfs_header_t, crc);
