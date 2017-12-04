@@ -5,16 +5,17 @@
 
 #include <Arduino.h>
 
-static uint8_t fkfs_printf(const char *format, ...) {
+static size_t fkfs_printf(const char *f, ...) {
     char buffer[256];
     va_list args;
-    va_start(args, format);
-    vsnprintf(buffer, sizeof(buffer), format, args);
+    va_start(args, f);
+    vsnprintf(buffer, sizeof(buffer), f, args);
     Serial.print(buffer);
     va_end(args);
-
     return 0;
 }
+
+static size_t (*fkfs_log_function_ptr)(const char *f, ...) = fkfs_printf;
 
 #define FKFS_FIRST_BLOCK           6000
 #define FKFS_SEEK_BLOCKS_MAX       5
@@ -22,9 +23,9 @@ static uint8_t fkfs_printf(const char *format, ...) {
 // This is for testing wrap around.
 #define FKFS_TESTING_LAST_BLOCK    FKFS_FIRST_BLOCK + 100
 
-#define fkfs_log(f, ...)           fkfs_printf(f, __VA_ARGS__)
+#define fkfs_log(f, ...)           fkfs_log_function_ptr(f, ##__VA_ARGS__)
 
-#define fkfs_log_verbose(f, ...)   // fkfs_printf(f, __VA_ARGS__)
+#define fkfs_log_verbose(f, ...)   // fkfs_log(f, ##__VA_ARGS__)
 
 static uint32_t crc16_table[16] = {
     0x0000, 0xCC01, 0xD801, 0x1400, 0xF001, 0x3C00, 0x2800, 0xE401,
@@ -61,6 +62,11 @@ static uint8_t fkfs_header_crc_update(fkfs_header_t *header) {
     uint16_t actual = crc16_update(0, (uint8_t *)header, FKFS_HEADER_SIZE_MINUS_CRC);
     header->crc = actual;
     return actual;
+}
+
+uint8_t fkfs_configure_logging(size_t (*log_function_ptr)(const char *f, ...)) {
+    fkfs_log_function_ptr = log_function_ptr;
+    return true;
 }
 
 uint8_t fkfs_create(fkfs_t *fs) {
@@ -131,13 +137,13 @@ uint8_t fkfs_initialize(fkfs_t *fs, bool wipe) {
     // If both checksums fail, then we're on a new card.
     // TODO: May want to make this configurable?
     if (wipe || (!fkfs_header_crc_valid(&headers[0]) && !fkfs_header_crc_valid(&headers[1]))) {
-        fkfs_printf("fkfs: initialize/wipe\r\n");
+        fkfs_log("fkfs: initialize/wipe");
 
         // New filesystem... initialize a blank header and new versions of all files.
         for (uint8_t i = 0; i < FKFS_FILES_MAX; ++i) {
             // This isn't random enough, most likely.
             fs->header.files[i].version = random(UINT16_MAX);
-            fkfs_printf("file.version = %d\r\n", fs->header.files[i].version);
+            fkfs_log("file.version = %d", fs->header.files[i].version);
         }
 
         fs->header.block = FKFS_FIRST_BLOCK;
@@ -245,13 +251,13 @@ static uint8_t fkfs_block_available_offset(fkfs_t *fs, fkfs_file_t *file, uint8_
 
         switch (search->status) {
         case FKFS_OFFSET_SEARCH_STATUS_FILE:
-            fkfs_log_verbose("FILE %d\r\n", search->offset);
+            fkfs_log_verbose("FILE %d", search->offset);
             break;
         case FKFS_OFFSET_SEARCH_STATUS_SIZE:
-            fkfs_log_verbose("SIZE %d\r\n", search->offset);
+            fkfs_log_verbose("SIZE %d", search->offset);
             return true;
         case FKFS_OFFSET_SEARCH_STATUS_CRC:
-            fkfs_log_verbose("CRC %d\r\n", search->offset);
+            fkfs_log_verbose("CRC %d", search->offset);
             return true;
         case FKFS_OFFSET_SEARCH_STATUS_GOOD:
             break;
@@ -262,7 +268,7 @@ static uint8_t fkfs_block_available_offset(fkfs_t *fs, fkfs_file_t *file, uint8_
         if (blockPriority > priority) {
             if (entry->available >= required) {
                 search->status = FKFS_OFFSET_SEARCH_STATUS_PRIORITY;
-                fkfs_log_verbose(" [%d > %d][%d >= %d] PRI\r\n",
+                fkfs_log_verbose(" [%d > %d][%d >= %d] PRI",
                                  blockPriority, priority,
                                  entry->available, required);
                 return true;
@@ -277,7 +283,7 @@ static uint8_t fkfs_block_available_offset(fkfs_t *fs, fkfs_file_t *file, uint8_
     }
     while (search->offset + required < SD_RAW_BLOCK_SIZE);
 
-    fkfs_log_verbose("EOB %d\r\n", search->offset);
+    fkfs_log_verbose("EOB %d", search->offset);
     search->status = FKFS_OFFSET_SEARCH_STATUS_EOB;
 
     return false;
@@ -306,7 +312,7 @@ static uint8_t fkfs_fsync(fkfs_t *fs) {
     fs->cachedBlockNumber = UINT32_MAX;
     fs->cachedBlockDirty = false;
 
-    fkfs_printf("fkfs: sync!\r\n");
+    fkfs_log("fkfs: sync!");
 
     return true;
 }
@@ -317,12 +323,12 @@ static uint8_t fkfs_file_allocate_block(fkfs_t *fs, uint8_t fileNumber, uint16_t
     uint16_t visitedBlocks = 0;
     uint32_t newBlock = fs->header.block;
 
-    fkfs_log_verbose("fkfs: file_allocate_block(%d, %d)\r\n", fileNumber, required);
+    fkfs_log_verbose("fkfs: file_allocate_block(%d, %d)", fileNumber, required);
 
     do {
         // If we can't fit in the remainder of this block, we gotta move on.
         if (required + newOffset > SD_RAW_BLOCK_SIZE) {
-            fkfs_log_verbose("fkfs: new block #%d required=%d offset=%d\r\n",
+            fkfs_log_verbose("fkfs: new block #%d required=%d offset=%d",
                              fs->header.block + 1, required, newOffset);
 
             // Flush any cached block before we move onto a new block.
@@ -382,7 +388,7 @@ uint8_t fkfs_file_append(fkfs_t *fs, uint8_t fileNumber, uint16_t size, uint8_t 
     }
 
     /*
-    fkfs_log("fkfs: allocating f#%d.%-3d.%-5d %3d[%-3d] need=%d\r\n",
+    fkfs_log("fkfs: allocating f#%d.%-3d.%-5d %3d[%-3d] need=%d",
              fileNumber, fs->files[fileNumber].priority, file->version,
              fs->header.block, fs->header.offset, required);
     */
@@ -390,7 +396,7 @@ uint8_t fkfs_file_append(fkfs_t *fs, uint8_t fileNumber, uint16_t size, uint8_t 
         return false;
     }
 
-    fkfs_log("fkfs: allocated  f#%d.%-3d.%-5d %3d[%-3d -> %-3d] %d\r\n",
+    fkfs_log("fkfs: allocated  f#%d.%-3d.%-5d %3d[%-3d -> %-3d] %d",
              fileNumber, fs->files[fileNumber].priority, file->version,
              fs->header.block,
              fs->header.offset, fs->header.offset + required,
@@ -476,8 +482,8 @@ uint8_t fkfs_file_iterate(fkfs_t *fs, uint8_t fileNumber, fkfs_file_iter_t *iter
 }
 
 uint8_t fkfs_log_statistics(fkfs_t *fs) {
-    fkfs_printf("fkfs: index=%d gen=%d block=%d offset=%d\r\n",
-                fs->headerIndex, fs->header.generation,
-                fs->header.block, fs->header.offset);
+    fkfs_log("fkfs: index=%d gen=%d block=%d offset=%d",
+             fs->headerIndex, fs->header.generation,
+             fs->header.block, fs->header.offset);
     return true;
 }

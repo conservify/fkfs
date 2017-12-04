@@ -61,6 +61,8 @@ const uint16_t FKFS_ENTRY_SIZE_MINUS_CRC = offsetof(fkfs_entry_t, crc);
 const uint16_t FKFS_HEADER_SIZE_MINUS_CRC = offsetof(fkfs_header_t, crc);
 const uint16_t FKFS_MAXIMUM_BLOCK_SIZE = SD_RAW_BLOCK_SIZE - sizeof(fkfs_entry_t);
 
+uint8_t fkfs_configure_logging(size_t (*log_function_ptr)(const char *f, ...));
+
 uint8_t fkfs_create(fkfs_t *fs);
 
 uint8_t fkfs_touch(fkfs_t *fs, uint32_t time);
