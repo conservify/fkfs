@@ -464,7 +464,8 @@ uint8_t fkfs_file_iterate(fkfs_t *fs, uint8_t fileNumber, fkfs_file_iter_t *iter
 
     // Begin with the first block in the file.
     if (iter->token.block == 0) {
-        if (token != nullptr) {
+        // We can't start on block 0.
+        if (token != nullptr && token->block > 0) {
             iter->token.block = token->block;
             iter->token.offset = token->offset;
         }
