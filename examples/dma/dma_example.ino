@@ -44,7 +44,7 @@ void setup() {
         }
     }
 
-    uint8_t status;
+    uint8_t status = 0;
     uint8_t source_memory[DATA_LENGTH];
     uint8_t destination_memory[DATA_LENGTH];
 

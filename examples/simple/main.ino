@@ -29,7 +29,7 @@ uint8_t fkfs_single_record_initialize(fkfs_single_record_t *sr, fkfs_t *fs, uint
 uint8_t fkfs_single_record_read(fkfs_single_record_t *sr, uint8_t *ptr, uint16_t size) {
     fkfs_file_iter_t iter = { 0 };
 
-    if (fkfs_file_iterate(sr->fs, FKFS_FILE_LOG, &iter)) {
+    if (fkfs_file_iterate(sr->fs, FKFS_FILE_LOG, &iter, nullptr)) {
         if (iter.size != size) {
             return false;
         }
@@ -137,11 +137,11 @@ void setup() {
     }
 
     fkfs_file_iter_t iter = { 0 };
-    while (fkfs_file_iterate(&fs, FKFS_FILE_LOG, &iter)) {
+    while (fkfs_file_iterate(&fs, FKFS_FILE_LOG, &iter, nullptr)) {
         Serial.print("fkfs: iter: ");
-        Serial.print(iter.block);
+        Serial.print(iter.token.block);
         Serial.print(" ");
-        Serial.print(iter.offset);
+        Serial.print(iter.token.offset);
         Serial.print(" ");
         Serial.print((char *)iter.data);
         Serial.println();

@@ -87,6 +87,29 @@ uint8_t fkfs_initialize_file(fkfs_t *fs, uint8_t fileNumber, uint8_t priority, u
     return true;
 }
 
+uint8_t fkfs_number_of_files(fkfs_t *fs) {
+    for (uint8_t counter = 0; counter < FKFS_FILES_MAX; ++counter) {
+        fkfs_file_t *file = &fs->header.files[counter];
+        if (file->name[0] == 0) {
+            return counter;
+        }
+    }
+    return 0;
+}
+
+uint8_t fkfs_get_file(fkfs_t *fs, uint8_t fileNumber, fkfs_file_info_t *info) {
+    info->sync = fs->files[fileNumber].sync;
+    info->priority = fs->files[fileNumber].priority;
+
+    fkfs_file_t *file = &fs->header.files[fileNumber];
+    strncpy(info->name, file->name, sizeof(info->name));
+    info->version = file->version;;
+    // This will have to go.
+    info->size = SD_RAW_BLOCK_SIZE * (fs->header.block - file->startBlock);
+
+    return true;
+}
+
 static uint8_t fkfs_header_write(fkfs_t *fs, bool wipe) {
     uint8_t buffer[SD_RAW_BLOCK_SIZE] = { 0 };
 
@@ -321,7 +344,6 @@ static uint8_t fkfs_file_allocate_block(fkfs_t *fs, uint8_t fileNumber, uint16_t
     fkfs_file_t *file = &fs->header.files[fileNumber];
     uint16_t newOffset = fs->header.offset;
     uint16_t visitedBlocks = 0;
-    uint32_t newBlock = fs->header.block;
 
     fkfs_log_verbose("fkfs: file_allocate_block(%d, %d)", fileNumber, required);
 
@@ -437,37 +459,43 @@ uint8_t fkfs_file_truncate(fkfs_t *fs, uint8_t fileNumber) {
     return true;
 }
 
-uint8_t fkfs_file_iterate(fkfs_t *fs, uint8_t fileNumber, fkfs_file_iter_t *iter) {
+uint8_t fkfs_file_iterate(fkfs_t *fs, uint8_t fileNumber, fkfs_file_iter_t *iter, fkfs_iterator_token_t *token) {
     fkfs_file_t *file = &fs->header.files[fileNumber];
 
     // Begin with the first block in the file.
-    if (iter->block == 0) {
-        iter->block = file->startBlock;
-        iter->offset = 0;
+    if (iter->token.block == 0) {
+        if (token != nullptr) {
+            iter->token.block = token->block;
+            iter->token.offset = token->offset;
+        }
+        else {
+            iter->token.block = file->startBlock;
+            iter->token.offset = 0;
+        }
     }
 
     do {
         // Make sure the block is loaded up into the cache.
-        if (!fkfs_block_ensure(fs, iter->block)) {
+        if (!fkfs_block_ensure(fs, iter->token.block)) {
             return false;
         }
 
         // Find the next block of the file in the cached memory block.
-        uint8_t *ptr = fs->buffer + iter->offset;
+        uint8_t *ptr = fs->buffer + iter->token.offset;
         if (fkfs_block_check(fs, ptr) == FKFS_OFFSET_SEARCH_STATUS_GOOD) {
             fkfs_entry_t *entry = (fkfs_entry_t *)ptr;
             if (entry->file == fileNumber) {
                 iter->size = entry->size;
                 iter->data = ptr + sizeof(fkfs_entry_t);
-                iter->offset += entry->available;
+                iter->token.offset += entry->available;
                 return true;
             }
 
-            iter->offset += entry->available;
+            iter->token.offset += entry->available;
         }
         else {
-            iter->block++;
-            iter->offset = 0;
+            iter->token.block++;
+            iter->token.offset = 0;
 
             // Wrap around logic, back to the beginning of the SD. It will now
             // be important to look at priority and for old files.
@@ -476,7 +504,7 @@ uint8_t fkfs_file_iterate(fkfs_t *fs, uint8_t fileNumber, fkfs_file_iter_t *iter
             }
         }
     }
-    while (iter->block <= fs->header.block);
+    while (iter->token.block <= fs->header.block);
 
     return false;
 }

@@ -9,9 +9,10 @@
 #define memzero(ptr, sz)          memset(ptr, 0, sz)
 
 const uint16_t FKFS_FILES_MAX = 6;
+const uint8_t FKFS_FILE_NAME_MAX = 12;
 
 typedef struct fkfs_file_t {
-    char name[12];
+    char name[FKFS_FILE_NAME_MAX];
     uint16_t version;
     uint32_t startBlock;
 } __attribute__((packed)) fkfs_file_t;
@@ -38,6 +39,14 @@ typedef struct fkfs_file_runtime_settings_t {
     uint8_t priority;
 } fkfs_file_runtime_settings_t;
 
+typedef struct fkfs_file_info_t {
+    uint32_t size;
+    uint8_t sync;
+    uint8_t priority;
+    uint16_t version;
+    char name[FKFS_FILE_NAME_MAX];
+} fkfs_file_info_t;
+
 typedef struct fkfs_t {
     uint8_t headerIndex;
     uint8_t cachedBlockDirty;
@@ -49,10 +58,14 @@ typedef struct fkfs_t {
     fkfs_file_runtime_settings_t files[FKFS_FILES_MAX];
 } fkfs_t;
 
-typedef struct fkfs_file_iter_t {
-    uint8_t file;
+typedef struct fkfs_iterator_token_t {
     uint32_t block;
     uint16_t offset;
+} fkfs_iterator_token_t;
+
+typedef struct fkfs_file_iter_t {
+    uint8_t file;
+    fkfs_iterator_token_t token;
     uint8_t *data;
     uint16_t size;
 } fkfs_file_iter_t;
@@ -73,11 +86,15 @@ uint8_t fkfs_initialize_file(fkfs_t *fs, uint8_t fileNumber, uint8_t priority, u
 
 uint8_t fkfs_initialize(fkfs_t *fs, bool wipe);
 
+uint8_t fkfs_number_of_files(fkfs_t *fs);
+
+uint8_t fkfs_get_file(fkfs_t *fs, uint8_t fileNumber, fkfs_file_info_t *info);
+
 uint8_t fkfs_file_append(fkfs_t *fs, uint8_t fileNumber, uint16_t size, uint8_t *data);
 
 uint8_t fkfs_file_truncate(fkfs_t *fs, uint8_t fileNumber);
 
-uint8_t fkfs_file_iterate(fkfs_t *fs, uint8_t fileNumber, fkfs_file_iter_t *iter);
+uint8_t fkfs_file_iterate(fkfs_t *fs, uint8_t fileNumber, fkfs_file_iter_t *iter, fkfs_iterator_token_t *token);
 
 uint8_t fkfs_log_statistics(fkfs_t *fs);
 

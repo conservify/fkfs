@@ -21,7 +21,6 @@ uint8_t fkfs_log_flush(fkfs_log_t *log) {
 
 uint8_t fkfs_log_append(fkfs_log_t *log, const char *str) {
     size_t required = strlen(str);
-    const char *ptr = str;
 
     while (required > 0) {
         size_t available = FKFS_MAXIMUM_BLOCK_SIZE - log->position;
@@ -47,7 +46,7 @@ uint8_t fkfs_log_printf(fkfs_log_t *log, const char *format, ...) {
     char incoming[FKFS_MAXIMUM_BLOCK_SIZE];
     va_list args;
     va_start(args, format);
-    size_t length = vsnprintf(incoming, sizeof(incoming), format, args);
+    vsnprintf(incoming, sizeof(incoming), format, args);
     va_end(args);
 
     return fkfs_log_append(log, incoming);

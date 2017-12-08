@@ -14,3 +14,6 @@ gitdeps:
 
 clean:
 	rm -rf $(BUILD)
+
+veryclean: clean
+	rm -rf gitdeps

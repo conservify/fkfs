@@ -196,9 +196,11 @@ static uint8_t sd_raw_read_register(sd_raw_t *sd, uint8_t command, void *buffer)
     return true;
 }
 
+/*
 static uint8_t sd_raw_read_cid(sd_raw_t *sd, cid_t* cid) {
     return sd_raw_read_register(sd, CMD10, cid);
 }
+*/
 
 static uint8_t sd_raw_read_csd(sd_raw_t *sd, csd_t* csd) {
     return sd_raw_read_register(sd, CMD9, csd);
