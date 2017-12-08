@@ -492,6 +492,8 @@ uint8_t fkfs_file_iterate(fkfs_t *fs, uint8_t fileNumber, fkfs_file_iter_t *iter
         }
     }
 
+    uint32_t started = millis();
+
     do {
         // Make sure the block is loaded up into the cache.
         if (!fkfs_block_ensure(fs, iter->token.block)) {
@@ -503,6 +505,11 @@ uint8_t fkfs_file_iterate(fkfs_t *fs, uint8_t fileNumber, fkfs_file_iter_t *iter
         if (fkfs_block_check(fs, ptr) == FKFS_OFFSET_SEARCH_STATUS_GOOD) {
             fkfs_entry_t *entry = (fkfs_entry_t *)ptr;
             if (entry->file == fileNumber) {
+                if (token != nullptr) {
+                    token->block = iter->token.block;
+                    token->offset = iter->token.offset;
+                }
+
                 iter->size = entry->size;
                 iter->data = ptr + sizeof(fkfs_entry_t);
                 iter->token.offset += entry->available;
@@ -520,6 +527,11 @@ uint8_t fkfs_file_iterate(fkfs_t *fs, uint8_t fileNumber, fkfs_file_iter_t *iter
             if (fs->header.block == fs->numberOfBlocks - 2 || fs->header.block == FKFS_TESTING_LAST_BLOCK) {
                 fs->header.block = FKFS_FIRST_BLOCK;
             }
+        }
+
+        if (millis() - started > 1000) {
+            fkfs_log("fkfs: scanning: %d / %d", iter->token.block, iter->token.offset);
+            started = millis();
         }
     }
     while (iter->token.block <= fs->header.block);
