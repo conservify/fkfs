@@ -281,12 +281,11 @@ static uint8_t fkfs_block_check(fkfs_t *fs, uint8_t *ptr) {
 static uint8_t fkfs_block_available_offset(fkfs_t *fs, fkfs_file_t *file, uint8_t priority, uint16_t required, uint8_t *buffer, fkfs_offset_search_t *search) {
     uint8_t *iter = buffer + search->offset;
     fkfs_entry_t *entry = (fkfs_entry_t *)iter;
+    uint16_t initialOffset = search->offset;
 
     fkfs_log_verbose("fkfs: block_available_offset(%d, %d) ", search->offset, required);
 
     do {
-        fkfs_log_verbose("%d ", search->offset);
-
         search->status = fkfs_block_check(fs, iter);
 
         switch (search->status) {
@@ -323,8 +322,18 @@ static uint8_t fkfs_block_available_offset(fkfs_t *fs, fkfs_file_t *file, uint8_
     }
     while (search->offset + required < SD_RAW_BLOCK_SIZE);
 
-    fkfs_log_verbose("EOB %d", search->offset);
     search->status = FKFS_OFFSET_SEARCH_STATUS_EOB;
+
+    #ifdef FKFS_LOGGING_VERBOSE
+    fkfs_log_verbose("EOB: block=%d required=%d offset=%d initialOffset=%d version=%d", fs->header.block, required, search->offset, initialOffset, file->version);
+    if (initialOffset == 0) {
+        fkfs_entry_t *entry = (fkfs_entry_t *)buffer + initialOffset;
+        fkfs_file_t *blockFile = &fs->header.files[entry->file];
+        uint8_t *data = buffer + sizeof(fkfs_entry_t);
+        uint16_t expected = fkfs_block_crc(fs, blockFile, entry, data);
+        fkfs_log_verbose("ENTRY: file(%d) size(%d) version(%d) crc(%d vs %d)", entry->file, entry->size, blockFile->version, entry->crc, expected);
+    }
+    #endif
 
     return false;
 }
