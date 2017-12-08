@@ -168,10 +168,19 @@ uint8_t fkfs_initialize(fkfs_t *fs, bool wipe) {
 
         // New filesystem... initialize a blank header and new versions of all files.
         for (uint8_t i = 0; i < FKFS_FILES_MAX; ++i) {
-            // This isn't random enough, most likely.
-            fs->header.files[i].version = random(UINT16_MAX);
-            fkfs_log("file.version = %d", fs->header.files[i].version);
+            if (fs->header.files[i].version == 0) {
+                fs->header.files[i].version = random(UINT16_MAX);
+            }
+            fs->header.files[i].startBlock = fs->header.files[i].startBlock;
+            fkfs_log("file[%d] sync=%d pri=%d block=%d version=%d '%s'", i,
+                     fs->files[i].sync,
+                     fs->files[i].priority,
+                     fs->header.files[i].startBlock,
+                     fs->header.files[i].version,
+                     fs->header.files[i].name);
         }
+
+        memcpy((void *)&headers[fs->headerIndex], (void *)&fs->header, sizeof(fkfs_header_t));
 
         fs->header.block = FKFS_FIRST_BLOCK;
         fs->header.generation = 0;
@@ -183,9 +192,13 @@ uint8_t fkfs_initialize(fkfs_t *fs, bool wipe) {
         fs->header.generation = 1;
         fs->headerIndex = 1;
 
+        memcpy((void *)&headers[fs->headerIndex], (void *)&fs->header, sizeof(fkfs_header_t));
+
         if (!fkfs_header_write(fs, false)) {
             return false;
         }
+
+
     }
     else {
         if (!fkfs_header_crc_valid(&headers[1])) {
