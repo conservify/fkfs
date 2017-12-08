@@ -25,7 +25,11 @@ static size_t (*fkfs_log_function_ptr)(const char *f, ...) = fkfs_printf;
 
 #define fkfs_log(f, ...)           fkfs_log_function_ptr(f, ##__VA_ARGS__)
 
-#define fkfs_log_verbose(f, ...)   // fkfs_log(f, ##__VA_ARGS__)
+#ifdef FKFS_LOGGING_VERBOSE
+#define fkfs_log_verbose(f, ...)   fkfs_log(f, ##__VA_ARGS__)
+#else
+#define fkfs_log_verbose(f, ...)
+#endif
 
 static uint32_t crc16_table[16] = {
     0x0000, 0xCC01, 0xD801, 0x1400, 0xF001, 0x3C00, 0x2800, 0xE401,
@@ -345,7 +349,7 @@ static uint8_t fkfs_file_allocate_block(fkfs_t *fs, uint8_t fileNumber, uint16_t
     uint16_t newOffset = fs->header.offset;
     uint16_t visitedBlocks = 0;
 
-    fkfs_log_verbose("fkfs: file_allocate_block(%d, %d)", fileNumber, required);
+    fkfs_log_verbose("fkfs: file_allocate_block(%d, %d,) (block=%d, offset=%d)", fileNumber, required, fs->header.block, newOffset);
 
     do {
         // If we can't fit in the remainder of this block, we gotta move on.

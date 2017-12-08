@@ -25,7 +25,7 @@ typedef struct fkfs_header_t {
     uint32_t time;
     fkfs_file_t files[FKFS_FILES_MAX];
     uint16_t crc;
-} __attribute__((packed)) fkfs_header_t;;
+} __attribute__((packed)) fkfs_header_t;
 
 typedef struct fkfs_entry_t {
     uint8_t file;
