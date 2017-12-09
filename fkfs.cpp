@@ -536,8 +536,9 @@ uint8_t fkfs_file_iterate(fkfs_t *fs, uint8_t fileNumber, fkfs_file_iter_t *iter
 
             // Wrap around logic, back to the beginning of the SD. It will now
             // be important to look at priority and for old files.
-            if (fs->header.block == fs->numberOfBlocks - 2 || fs->header.block == FKFS_TESTING_LAST_BLOCK) {
-                fs->header.block = FKFS_FIRST_BLOCK;
+            if (iter->token.block == fs->numberOfBlocks - 2 || iter->token.block == FKFS_TESTING_LAST_BLOCK) {
+                iter->token.block = FKFS_FIRST_BLOCK;
+            }
             }
         }
 
