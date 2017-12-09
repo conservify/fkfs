@@ -26,7 +26,7 @@ uint8_t fkfs_log_append(fkfs_log_t *log, const char *str) {
         size_t available = FKFS_MAXIMUM_BLOCK_SIZE - log->position;
         size_t copy = required > available ? available : required;
 
-        memcpy((uint8_t *)log->buffer + log->position, str, required);
+        memcpy((uint8_t *)log->buffer + log->position, str, copy);
 
         log->position += copy;
         required -= copy;
