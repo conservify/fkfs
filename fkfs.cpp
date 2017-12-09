@@ -21,7 +21,7 @@ static size_t (*fkfs_log_function_ptr)(const char *f, ...) = fkfs_printf;
 #define FKFS_SEEK_BLOCKS_MAX       5
 
 // This is for testing wrap around.
-#define FKFS_TESTING_LAST_BLOCK    FKFS_FIRST_BLOCK + 100
+#define FKFS_TESTING_LAST_BLOCK    FKFS_FIRST_BLOCK + 1000
 
 #define fkfs_log(f, ...)           fkfs_log_function_ptr(f, ##__VA_ARGS__)
 
@@ -281,7 +281,9 @@ static uint8_t fkfs_block_check(fkfs_t *fs, uint8_t *ptr) {
 static uint8_t fkfs_block_available_offset(fkfs_t *fs, fkfs_file_t *file, uint8_t priority, uint16_t required, uint8_t *buffer, fkfs_offset_search_t *search) {
     uint8_t *iter = buffer + search->offset;
     fkfs_entry_t *entry = (fkfs_entry_t *)iter;
+#ifdef FKFS_LOGGING_VERBOSE
     uint16_t initialOffset = search->offset;
+#endif
 
     fkfs_log_verbose("fkfs: block_available_offset(%d, %d) ", search->offset, required);
 
@@ -324,7 +326,7 @@ static uint8_t fkfs_block_available_offset(fkfs_t *fs, fkfs_file_t *file, uint8_
 
     search->status = FKFS_OFFSET_SEARCH_STATUS_EOB;
 
-    #ifdef FKFS_LOGGING_VERBOSE
+#ifdef FKFS_LOGGING_VERBOSE
     fkfs_log_verbose("EOB: block=%d required=%d offset=%d initialOffset=%d version=%d", fs->header.block, required, search->offset, initialOffset, file->version);
     if (initialOffset == 0) {
         fkfs_entry_t *entry = (fkfs_entry_t *)buffer + initialOffset;
@@ -333,7 +335,7 @@ static uint8_t fkfs_block_available_offset(fkfs_t *fs, fkfs_file_t *file, uint8_
         uint16_t expected = fkfs_block_crc(fs, blockFile, entry, data);
         fkfs_log_verbose("ENTRY: file(%d) size(%d) version(%d) crc(%d vs %d)", entry->file, entry->size, blockFile->version, entry->crc, expected);
     }
-    #endif
+#endif
 
     return false;
 }
@@ -393,6 +395,7 @@ static uint8_t fkfs_file_allocate_block(fkfs_t *fs, uint8_t fileNumber, uint16_t
             // be important to look at priority and for old files.
             if (fs->header.block == fs->numberOfBlocks - 2 || fs->header.block == FKFS_TESTING_LAST_BLOCK) {
                 fs->header.block = FKFS_FIRST_BLOCK;
+                fkfs_log("fkfs: wrap around to %d", fs->header.block);
             }
         }
 
