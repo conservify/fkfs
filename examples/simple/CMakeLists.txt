@@ -1,5 +1,5 @@
 set(SOURCE_FILES
-  main.ino
+  main.cpp
   ../../sd_raw.cpp
   ../../fkfs.cpp
   ../../fkfs_log.cpp

@@ -1,9 +1,13 @@
+#include "sd_raw.h"
+#include "sd_raw_dma.h"
+#undef LOW
+#undef HIGH
+#undef min
+#undef max
+
 #include <stdio.h>
 #include <Arduino.h>
 #include <SPI.h>
-
-#include "sd_raw.h"
-#include "sd_raw_dma.h"
 
 #define FKFS_FILE_LOG                     0
 #define FKFS_FILE_DATA                    1
