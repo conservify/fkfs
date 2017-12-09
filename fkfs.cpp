@@ -497,10 +497,12 @@ uint8_t fkfs_file_iterate(fkfs_t *fs, uint8_t fileNumber, fkfs_file_iter_t *iter
         if (token != nullptr && token->block > 0) {
             iter->token.block = token->block;
             iter->token.offset = token->offset;
+            iter->token.lastBlock = token->lastBlock;
         }
         else {
             iter->token.block = file->startBlock;
             iter->token.offset = 0;
+            iter->token.lastBlock = fs->header.block;
         }
     }
 
@@ -520,6 +522,7 @@ uint8_t fkfs_file_iterate(fkfs_t *fs, uint8_t fileNumber, fkfs_file_iter_t *iter
                 if (token != nullptr) {
                     token->block = iter->token.block;
                     token->offset = iter->token.offset;
+                    token->lastBlock = iter->token.lastBlock;
                 }
 
                 iter->size = entry->size;
@@ -539,6 +542,9 @@ uint8_t fkfs_file_iterate(fkfs_t *fs, uint8_t fileNumber, fkfs_file_iter_t *iter
             if (iter->token.block == fs->numberOfBlocks - 2 || iter->token.block == FKFS_TESTING_LAST_BLOCK) {
                 iter->token.block = FKFS_FIRST_BLOCK;
             }
+
+            if (iter->token.block == iter->token.lastBlock) {
+                return false;
             }
         }
 

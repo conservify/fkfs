@@ -61,6 +61,7 @@ typedef struct fkfs_t {
 typedef struct fkfs_iterator_token_t {
     uint32_t block;
     uint16_t offset;
+    uint32_t lastBlock;
 } fkfs_iterator_token_t;
 
 typedef struct fkfs_file_iter_t {
