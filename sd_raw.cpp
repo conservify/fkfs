@@ -3,12 +3,12 @@
 
 #include <SPI.h>
 
-static uint8_t sd_raw_cs_high(sd_raw_t *sd) {
+uint8_t sd_raw_cs_high(sd_raw_t *sd) {
     digitalWrite(sd->cs, HIGH);
     return true;
 }
 
-static uint8_t sd_raw_cs_low(sd_raw_t *sd) {
+uint8_t sd_raw_cs_low(sd_raw_t *sd) {
     digitalWrite(sd->cs, LOW);
     return true;
 }
