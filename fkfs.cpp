@@ -108,8 +108,7 @@ uint8_t fkfs_get_file(fkfs_t *fs, uint8_t fileNumber, fkfs_file_info_t *info) {
     fkfs_file_t *file = &fs->header.files[fileNumber];
     strncpy(info->name, file->name, sizeof(info->name));
     info->version = file->version;;
-    // This will have to go.
-    info->size = SD_RAW_BLOCK_SIZE * (fs->header.block - file->startBlock);
+    info->size = file->size;
 
     return true;
 }
@@ -463,6 +462,8 @@ uint8_t fkfs_file_append(fkfs_t *fs, uint8_t fileNumber, uint16_t size, uint8_t 
 
     fs->cachedBlockDirty = true;
     fs->header.offset += required;
+    fs->header.files[fileNumber].endBlock = fs->header.block;
+    fs->header.files[fileNumber].size += required;
 
     // If this file is configured to be fsync'd after every write that go ahead
     // and do that here. Otherwise this will happen later, either manually or
@@ -487,6 +488,8 @@ uint8_t fkfs_file_truncate(fkfs_t *fs, uint8_t fileNumber) {
     // starting block for the file.
     file->version++;
     file->startBlock = fs->header.block;
+    file->endBlock = file->startBlock;
+    file->size = 0;
 
     return true;
 }

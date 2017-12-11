@@ -8,13 +8,15 @@
 
 #define memzero(ptr, sz)          memset(ptr, 0, sz)
 
-const uint16_t FKFS_FILES_MAX = 6;
-const uint8_t FKFS_FILE_NAME_MAX = 12;
+constexpr uint16_t FKFS_FILES_MAX = 6;
+constexpr uint8_t FKFS_FILE_NAME_MAX = 12;
 
 typedef struct fkfs_file_t {
     char name[FKFS_FILE_NAME_MAX];
     uint16_t version;
     uint32_t startBlock;
+    uint32_t endBlock;
+    uint32_t size;
 } __attribute__((packed)) fkfs_file_t;
 
 typedef struct fkfs_header_t {
@@ -71,9 +73,11 @@ typedef struct fkfs_file_iter_t {
     uint16_t size;
 } fkfs_file_iter_t;
 
-const uint16_t FKFS_ENTRY_SIZE_MINUS_CRC = offsetof(fkfs_entry_t, crc);
-const uint16_t FKFS_HEADER_SIZE_MINUS_CRC = offsetof(fkfs_header_t, crc);
-const uint16_t FKFS_MAXIMUM_BLOCK_SIZE = SD_RAW_BLOCK_SIZE - sizeof(fkfs_entry_t);
+static_assert(sizeof(fkfs_header_t) * 2 <= SD_RAW_BLOCK_SIZE, "Error: fkfs header too large for SD block.");
+
+constexpr uint16_t FKFS_ENTRY_SIZE_MINUS_CRC = offsetof(fkfs_entry_t, crc);
+constexpr uint16_t FKFS_HEADER_SIZE_MINUS_CRC = offsetof(fkfs_header_t, crc);
+constexpr uint16_t FKFS_MAXIMUM_BLOCK_SIZE = SD_RAW_BLOCK_SIZE - sizeof(fkfs_entry_t);
 
 uint8_t fkfs_configure_logging(size_t (*log_function_ptr)(const char *f, ...));
 
