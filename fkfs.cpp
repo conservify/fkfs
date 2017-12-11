@@ -463,7 +463,7 @@ uint8_t fkfs_file_append(fkfs_t *fs, uint8_t fileNumber, uint16_t size, uint8_t 
     fs->cachedBlockDirty = true;
     fs->header.offset += required;
     fs->header.files[fileNumber].endBlock = fs->header.block;
-    fs->header.files[fileNumber].size += required;
+    fs->header.files[fileNumber].size += size;
 
     // If this file is configured to be fsync'd after every write that go ahead
     // and do that here. Otherwise this will happen later, either manually or
