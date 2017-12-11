@@ -292,13 +292,13 @@ static uint8_t fkfs_block_available_offset(fkfs_t *fs, fkfs_file_t *file, uint8_
 
         switch (search->status) {
         case FKFS_OFFSET_SEARCH_STATUS_FILE:
-            fkfs_log_verbose("FILE %d", search->offset);
+            fkfs_log_verbose("fkfs: invalid file at %d", search->offset);
             break;
         case FKFS_OFFSET_SEARCH_STATUS_SIZE:
-            fkfs_log_verbose("SIZE %d", search->offset);
+            fkfs_log_verbose("fkfs: invalid size at %d", search->offset);
             return true;
         case FKFS_OFFSET_SEARCH_STATUS_CRC:
-            fkfs_log_verbose("CRC %d", search->offset);
+            fkfs_log_verbose("fkfs: invalid crc at %d", search->offset);
             return true;
         case FKFS_OFFSET_SEARCH_STATUS_GOOD:
             break;
@@ -350,6 +350,7 @@ static uint8_t fkfs_fsync(fkfs_t *fs) {
     }
     else {
         // No reason to write anything if there's nothing dirty.
+        fkfs_log("fkfs: sync (ignored)");
         return true;
     }
 
@@ -373,14 +374,11 @@ static uint8_t fkfs_file_allocate_block(fkfs_t *fs, uint8_t fileNumber, uint16_t
     uint16_t newOffset = fs->header.offset;
     uint16_t visitedBlocks = 0;
 
-    fkfs_log_verbose("fkfs: file_allocate_block(%d, %d,) (block=%d, offset=%d)", fileNumber, required, fs->header.block, newOffset);
+    fkfs_log_verbose("fkfs: file_allocate_block(%d, %d) (block=%d, offset=%d)", fileNumber, required, fs->header.block, newOffset);
 
     do {
         // If we can't fit in the remainder of this block, we gotta move on.
         if (required + newOffset > SD_RAW_BLOCK_SIZE) {
-            fkfs_log_verbose("fkfs: new block #%d required=%d offset=%d",
-                             fs->header.block + 1, required, newOffset);
-
             // Flush any cached block before we move onto a new block.
             if (!fkfs_fsync(fs)) {
                 return false;
@@ -391,11 +389,13 @@ static uint8_t fkfs_file_allocate_block(fkfs_t *fs, uint8_t fileNumber, uint16_t
             fs->header.offset = newOffset = 0;
             visitedBlocks++;
 
+            fkfs_log_verbose("fkfs: file_allocate_block(%d, %d) (new block %d)", fileNumber, required, fs->header.block);
+
             // Wrap around logic, back to the beginning of the SD. It will now
             // be important to look at priority and for old files.
             if (fs->header.block == fs->numberOfBlocks - 2 || fs->header.block == FKFS_TESTING_LAST_BLOCK) {
                 fs->header.block = FKFS_FIRST_BLOCK;
-                fkfs_log("fkfs: wrap around to %d", fs->header.block);
+                fkfs_log_verbose("fkfs: file_allocate_block(%d, %d) (wrap around %d)", fileNumber, required, fs->header.block);
             }
         }
 
@@ -438,11 +438,10 @@ uint8_t fkfs_file_append(fkfs_t *fs, uint8_t fileNumber, uint16_t size, uint8_t 
         return false;
     }
 
-    /*
-    fkfs_log("fkfs: allocating f#%d.%-3d.%-5d %3d[%-3d] need=%d",
+    fkfs_log("fkfs: allocating f#%d.%-3d.%-5d %3d[required = %d]",
              fileNumber, fs->files[fileNumber].priority, file->version,
-             fs->header.block, fs->header.offset, required);
-    */
+             fs->header.block, required);
+
     if (!fkfs_file_allocate_block(fs, fileNumber, required, size, &entry)) {
         return false;
     }
@@ -472,6 +471,10 @@ uint8_t fkfs_file_append(fkfs_t *fs, uint8_t fileNumber, uint16_t size, uint8_t 
         if (!fkfs_fsync(fs)) {
             return false;
         }
+
+        fkfs_log_verbose("fkfs: done, synced");
+    } else {
+        fkfs_log_verbose("fkfs: done, file is no-sync");
     }
 
     return true;
