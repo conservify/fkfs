@@ -8,7 +8,5 @@ include(ArduinoMinimal)
 
 set(Adafruit_ZeroDMA_RECURSE True)
 
-set(EXTRA_CXX_FLAGS_PROJECT "-Wall -Werror")
-
 add_subdirectory(examples/simple)
 add_subdirectory(examples/dma)

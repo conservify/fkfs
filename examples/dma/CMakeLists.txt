@@ -22,3 +22,5 @@ include_directories(../../)
 include_directories(../../utility)
 
 arduino(fkfs-example-dma "${SOURCE_FILES}" "${LIBRARIES}")
+
+target_compile_options(fkfs-example-dma PRIVATE -Wall -Werror)
