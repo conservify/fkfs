@@ -518,6 +518,10 @@ uint8_t fkfs_file_iterate(fkfs_t *fs, uint8_t fileNumber, fkfs_file_iter_t *iter
     uint32_t started = millis();
     uint32_t maxBlocks = 10;
 
+    if (iter->token.block >= iter->token.lastBlock) {
+        return false;
+    }
+
     do {
         // Make sure the block is loaded up into the cache.
         if (!fkfs_block_ensure(fs, iter->token.block)) {
@@ -554,6 +558,15 @@ uint8_t fkfs_file_iterate(fkfs_t *fs, uint8_t fileNumber, fkfs_file_iter_t *iter
 
             if (--maxBlocks == 0) {
                 fkfs_log("fkfs: scanning: max-blocks reached (%d)", iter->token.block);
+                if (token != nullptr) {
+                    token->block = iter->token.block;
+                    token->offset = iter->token.offset;
+                    token->lastBlock = iter->token.lastBlock;
+                }
+                return false;
+            }
+            if (iter->token.block >= iter->token.lastBlock) {
+                fkfs_log("fkfs: scanning: last-block reached (%d)", iter->token.block);
                 if (token != nullptr) {
                     token->block = iter->token.block;
                     token->offset = iter->token.offset;
