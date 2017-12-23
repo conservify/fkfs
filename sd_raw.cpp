@@ -196,12 +196,6 @@ static uint8_t sd_raw_read_register(sd_raw_t *sd, uint8_t command, void *buffer)
     return true;
 }
 
-/*
-static uint8_t sd_raw_read_cid(sd_raw_t *sd, cid_t* cid) {
-    return sd_raw_read_register(sd, CMD10, cid);
-}
-*/
-
 static uint8_t sd_raw_read_csd(sd_raw_t *sd, csd_t* csd) {
     return sd_raw_read_register(sd, CMD9, csd);
 }
@@ -341,7 +335,7 @@ uint32_t sd_raw_card_size(sd_raw_t *sd) {
         return (uint32_t)(cSize + 1) << (cSizeMult + readBlLen - 7);
     }
     else if (csd.v2.csd_ver == 1) {
-        uint32_t cSize = ((uint32_t)csd.v2.c_size_high << 16) | (csd.v2.c_size_mid << 8) | csd.v2.c_size_low;
+        uint32_t cSize = ((uint32_t)csd.v2.c_size_high << 16) | ((uint32_t)csd.v2.c_size_mid << 8) | csd.v2.c_size_low;
         return (cSize + 1) * 1024;
     }
     else {
