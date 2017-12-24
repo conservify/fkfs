@@ -504,15 +504,15 @@ uint8_t fkfs_file_iterate(fkfs_t *fs, uint8_t fileNumber, fkfs_file_iter_t *iter
             iter->token.block = token->block;
             iter->token.offset = token->offset;
             iter->token.lastBlock = token->lastBlock;
-            fkfs_log("fkfs: scanning: resuming (%d -> %d)", iter->token.block, iter->token.lastBlock);
+            fkfs_log_verbose("fkfs: scanning: resuming (%d -> %d)", iter->token.block, iter->token.lastBlock);
         } else {
             iter->token.block = file->startBlock;
             iter->token.offset = 0;
             iter->token.lastBlock = fs->header.block;
-            fkfs_log("fkfs: scanning: starting (%d -> %d)", iter->token.block, iter->token.lastBlock);
+            fkfs_log_verbose("fkfs: scanning: starting (%d -> %d)", iter->token.block, iter->token.lastBlock);
         }
     } else {
-        fkfs_log("fkfs: scanning: resuming (%d, %d)", iter->token.block, iter->token.offset);
+        fkfs_log_verbose("fkfs: scanning: resuming (%d, %d)", iter->token.block, iter->token.offset);
     }
 
     uint32_t started = millis();
@@ -534,7 +534,7 @@ uint8_t fkfs_file_iterate(fkfs_t *fs, uint8_t fileNumber, fkfs_file_iter_t *iter
             fkfs_entry_t *entry = (fkfs_entry_t *)ptr;
             if (entry->file == fileNumber) {
                 if (token != nullptr) {
-                    fkfs_log("fkfs: scanning: data (%d, %d)", iter->token.block, iter->token.offset);
+                    fkfs_log_verbose("fkfs: scanning: data (%d, %d)", iter->token.block, iter->token.offset);
                     token->block = iter->token.block;
                     token->offset = iter->token.offset;
                     token->lastBlock = iter->token.lastBlock;
@@ -545,19 +545,19 @@ uint8_t fkfs_file_iterate(fkfs_t *fs, uint8_t fileNumber, fkfs_file_iter_t *iter
                 iter->token.offset += entry->available + sizeof(fkfs_entry_t);
                 return true;
             } else {
-                fkfs_log("fkfs: scanning: wrong file (%d) (%d, %d)", entry->file, iter->token.block, iter->token.offset);
+                fkfs_log_verbose("fkfs: scanning: wrong file (%d) (%d, %d)", entry->file, iter->token.block, iter->token.offset);
             }
 
             iter->token.offset += entry->available + sizeof(fkfs_entry_t);
         }
         else {
-            fkfs_log("fkfs: scanning: block (%d, %d)", iter->token.block, iter->token.offset);
+            fkfs_log_verbose("fkfs: scanning: block (%d, %d)", iter->token.block, iter->token.offset);
 
             iter->token.block++;
             iter->token.offset = 0;
 
             if (--maxBlocks == 0) {
-                fkfs_log("fkfs: scanning: max-blocks reached (%d)", iter->token.block);
+                fkfs_log_verbose("fkfs: scanning: max-blocks reached (%d)", iter->token.block);
                 if (token != nullptr) {
                     token->block = iter->token.block;
                     token->offset = iter->token.offset;
@@ -598,6 +598,12 @@ uint8_t fkfs_file_iterate(fkfs_t *fs, uint8_t fileNumber, fkfs_file_iter_t *iter
         }
     }
     while (iter->token.block <= fs->header.block);
+
+    if (token != nullptr) {
+        token->block = iter->token.block;
+        token->offset = iter->token.offset;
+        token->lastBlock = iter->token.lastBlock;
+    }
 
     return false;
 }
