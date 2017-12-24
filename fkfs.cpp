@@ -494,6 +494,13 @@ uint8_t fkfs_file_truncate(fkfs_t *fs, uint8_t fileNumber) {
     return true;
 }
 
+uint8_t fkfs_file_truncate_all(fkfs_t *fs) {
+    for (auto i = 0; i < FKFS_FILES_MAX; ++i) {
+        fkfs_file_truncate(fs, i);
+    }
+    return true;
+}
+
 uint8_t fkfs_file_iterate(fkfs_t *fs, uint8_t fileNumber, fkfs_file_iter_t *iter, fkfs_iterator_token_t *token) {
     fkfs_file_t *file = &fs->header.files[fileNumber];
 
