@@ -95,7 +95,7 @@ uint8_t fkfs_number_of_files(fkfs_t *fs) {
     for (uint8_t counter = 0; counter < FKFS_FILES_MAX; ++counter) {
         fkfs_file_t *file = &fs->header.files[counter];
         if (file->name[0] == 0) {
-            return counter;
+            return counter + 1;
         }
     }
     return 0;
