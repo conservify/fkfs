@@ -95,7 +95,7 @@ uint8_t fkfs_number_of_files(fkfs_t *fs) {
     for (uint8_t counter = 0; counter < FKFS_FILES_MAX; ++counter) {
         fkfs_file_t *file = &fs->header.files[counter];
         if (file->name[0] == 0) {
-            return counter + 1;
+            return counter;
         }
     }
     return 0;
@@ -196,8 +196,6 @@ uint8_t fkfs_initialize(fkfs_t *fs, bool wipe) {
         if (!fkfs_header_write(fs, false)) {
             return false;
         }
-
-
     }
     else {
         if (!fkfs_header_crc_valid(&headers[1])) {
@@ -211,6 +209,10 @@ uint8_t fkfs_initialize(fkfs_t *fs, bool wipe) {
         }
         else {
             fs->headerIndex = 1;
+        }
+
+        for (auto i = 0; i < FKFS_FILES_MAX; ++i) {
+            strncpy(headers[fs->headerIndex].files[i].name, fs->header.files[i].name, sizeof(headers[fs->headerIndex].files[i].name));
         }
 
         memcpy((void *)&fs->header, (void *)&headers[fs->headerIndex], sizeof(fkfs_header_t));
@@ -619,5 +621,11 @@ uint8_t fkfs_log_statistics(fkfs_t *fs) {
     fkfs_log("fkfs: index=%d gen=%d block=%d offset=%d",
              fs->headerIndex, fs->header.generation,
              fs->header.block, fs->header.offset);
+
+    for (uint8_t counter = 0; counter < FKFS_FILES_MAX; ++counter) {
+        fkfs_file_t *file = &fs->header.files[counter];
+        fkfs_log("fkfs: %d %s", counter, file->name);
+    }
+
     return true;
 }
