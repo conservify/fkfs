@@ -624,7 +624,9 @@ uint8_t fkfs_log_statistics(fkfs_t *fs) {
 
     for (uint8_t counter = 0; counter < FKFS_FILES_MAX; ++counter) {
         fkfs_file_t *file = &fs->header.files[counter];
-        fkfs_log("fkfs: %d %s", counter, file->name);
+        if (file->name[0] != 0) {
+            fkfs_log("fkfs: %d %s", counter, file->name);
+        }
     }
 
     return true;
