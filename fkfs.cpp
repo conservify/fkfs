@@ -524,8 +524,9 @@ uint8_t fkfs_file_iterate(fkfs_t *fs, uint8_t fileNumber, fkfs_iterator_config_t
         fkfs_log_verbose("fkfs: scanning: resuming (%d, %d)", iter->token.block, iter->token.offset);
     }
 
-    uint32_t started = millis();
-    uint32_t maxBlocks = config->maxBlocks;
+    auto started = millis();
+    auto lastStatus = started;
+    auto maxBlocks = config->maxBlocks;
 
     if (iter->token.block >= iter->token.lastBlock) {
         return false;
@@ -538,11 +539,14 @@ uint8_t fkfs_file_iterate(fkfs_t *fs, uint8_t fileNumber, fkfs_iterator_config_t
         }
 
         // Find the next block of the file in the cached memory block.
-        uint8_t *ptr = fs->buffer + iter->token.offset;
+        auto ptr = fs->buffer + iter->token.offset;
         if (fkfs_block_check(fs, ptr) == FKFS_OFFSET_SEARCH_STATUS_GOOD) {
-            fkfs_entry_t *entry = (fkfs_entry_t *)ptr;
+            auto entry = (fkfs_entry_t *)ptr;
             if (entry->file == fileNumber) {
                 fkfs_log_verbose("fkfs: scanning: data (%d, %d)", iter->token.block, iter->token.offset);
+                // The order here is important. When we're restarted we need to
+                // be able to find this block. This assumes that we don't know
+                // before a call to iterate if we'll be able to "consume" the data.
                 token->block = iter->token.block;
                 token->offset = iter->token.offset;
                 token->lastBlock = iter->token.lastBlock;
@@ -563,15 +567,7 @@ uint8_t fkfs_file_iterate(fkfs_t *fs, uint8_t fileNumber, fkfs_iterator_config_t
             iter->token.block++;
             iter->token.offset = 0;
 
-            auto maxBlocksReached = config->maxBlocks > 0 && --maxBlocks == 0;
-            auto maxTimeReached = config->maxTime > 0 && (millis() - started) > config->maxTime;
-            if (maxBlocksReached || maxTimeReached) {
-                fkfs_log_verbose("fkfs: scanning: max reached (%d)", iter->token.block);
-                token->block = iter->token.block;
-                token->offset = iter->token.offset;
-                token->lastBlock = iter->token.lastBlock;
-                return false;
-            }
+            // When we started we remembered where to stop.
             if (iter->token.block >= iter->token.lastBlock) {
                 fkfs_log("fkfs: scanning: last-block reached (%d)", iter->token.block);
                 token->block = iter->token.block;
@@ -586,8 +582,11 @@ uint8_t fkfs_file_iterate(fkfs_t *fs, uint8_t fileNumber, fkfs_iterator_config_t
                 iter->token.block = FKFS_FIRST_BLOCK;
             }
 
-            if (iter->token.block == iter->token.lastBlock) {
-                fkfs_log("fkfs: scanning: last-block reached (%d)", iter->token.block);
+            // See if our self imposed ending terms have been reached.
+            auto maxBlocksReached = config->maxBlocks > 0 && --maxBlocks == 0;
+            auto maxTimeReached = config->maxTime > 0 && (millis() - started) > config->maxTime;
+            if (maxBlocksReached || maxTimeReached) {
+                fkfs_log_verbose("fkfs: scanning: max reached (%d)", iter->token.block);
                 token->block = iter->token.block;
                 token->offset = iter->token.offset;
                 token->lastBlock = iter->token.lastBlock;
@@ -595,18 +594,12 @@ uint8_t fkfs_file_iterate(fkfs_t *fs, uint8_t fileNumber, fkfs_iterator_config_t
             }
         }
 
-        if (millis() - started > 1000) {
+        if (millis() - lastStatus > 1000) {
             fkfs_log("fkfs: scanning: %d / %d", iter->token.block, iter->token.offset);
-            started = millis();
+            lastStatus = millis();
         }
     }
-    while (iter->token.block <= fs->header.block);
-
-    token->block = iter->token.block;
-    token->offset = iter->token.offset;
-    token->lastBlock = iter->token.lastBlock;
-
-    return false;
+    while (true);
 }
 
 uint8_t fkfs_log_statistics(fkfs_t *fs) {
