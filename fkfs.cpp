@@ -503,7 +503,7 @@ uint8_t fkfs_file_truncate_all(fkfs_t *fs) {
     return true;
 }
 
-uint8_t fkfs_file_iterate(fkfs_t *fs, uint8_t fileNumber, fkfs_file_iter_t *iter, fkfs_iterator_token_t *token) {
+uint8_t fkfs_file_iterate(fkfs_t *fs, uint8_t fileNumber, fkfs_iterator_config_t *config, fkfs_file_iter_t *iter, fkfs_iterator_token_t *token) {
     fkfs_file_t *file = &fs->header.files[fileNumber];
 
     // Begin with the first block in the file.
@@ -525,7 +525,7 @@ uint8_t fkfs_file_iterate(fkfs_t *fs, uint8_t fileNumber, fkfs_file_iter_t *iter
     }
 
     uint32_t started = millis();
-    uint32_t maxBlocks = 10;
+    uint32_t maxBlocks = config->maxBlocks;
 
     if (iter->token.block >= iter->token.lastBlock) {
         return false;
@@ -565,8 +565,10 @@ uint8_t fkfs_file_iterate(fkfs_t *fs, uint8_t fileNumber, fkfs_file_iter_t *iter
             iter->token.block++;
             iter->token.offset = 0;
 
-            if (--maxBlocks == 0) {
-                fkfs_log_verbose("fkfs: scanning: max-blocks reached (%d)", iter->token.block);
+            auto maxBlocksReached = config->maxBlocks > 0 && --maxBlocks == 0;
+            auto maxTimeReached = config->maxTime > 0 && (millis() - started) > config->maxTime;
+            if (maxBlocksReached || maxTimeReached) {
+                fkfs_log_verbose("fkfs: scanning: max reached (%d)", iter->token.block);
                 if (token != nullptr) {
                     token->block = iter->token.block;
                     token->offset = iter->token.offset;
