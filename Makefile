@@ -13,11 +13,16 @@ gitdeps:
 	simple-deps --config examples/simple/arduino-libraries
 	simple-deps --config examples/dma/arduino-libraries
 
-testing:
-	cd testing && make
+testing: .PHONY
+	mkdir -p testing/build
+	cd testing/build && cmake ../
+	cd testing/build && make
 
 clean:
+	rm -rf testing/build
 	rm -rf $(BUILD)
 
 veryclean: clean
 	rm -rf gitdeps
+
+.PHONY:

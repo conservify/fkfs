@@ -2,6 +2,7 @@
 #include <cstdlib>
 #include <cstddef>
 #include <cstring>
+#include <string>
 
 #include "Arduino.h"
 #include "sd_raw.h"
@@ -12,7 +13,7 @@ static constexpr uint8_t FKFS_FILE_DATA = 1;
 static constexpr uint8_t FKFS_FILE_PRIORITY_LOWEST = 255;
 static constexpr uint8_t FKFS_FILE_PRIORITY_HIGHEST = 0;
 
-int extract(fkfs_t *fs, uint8_t id, const char *filename) {
+int extract(fkfs_t *fs, uint8_t id, std::string filename) {
     fkfs_file_iter_t iter = { 0 };
     fkfs_iterator_token_t token =  { 0x0 };
     fkfs_iterator_config_t config = {
@@ -20,19 +21,20 @@ int extract(fkfs_t *fs, uint8_t id, const char *filename) {
         .maxTime = 0,
     };
 
-    auto fp = fopen(filename, "w");
+    auto fp = fopen(filename.c_str(), "w");
     if (fp == nullptr) {
         return false;
     }
 
-    printf("Extracting %s...\n", filename);
+    printf("Extracting %s...\n", filename.c_str());
 
     while (fkfs_file_iterate(fs, id, &config, &iter, &token)) {
         char buffer[iter.size + 1];
         memcpy(buffer, iter.data, iter.size);
         buffer[iter.size] = 0;
-        // printf("fkfs: iter: %d %d %d %p\n", iter.token.block, iter.token.offset, iter.size, iter.data);
-        fprintf(fp, buffer);
+        fprintf(fp, "%s", buffer);
+
+        printf("Block: %d\n", iter.size);
     }
 
     fclose(fp);
@@ -40,13 +42,18 @@ int extract(fkfs_t *fs, uint8_t id, const char *filename) {
     return true;
 }
 
-int main() {
+int main(int argc, const char **argv) {
+    if (argc != 3) {
+        fprintf(stderr, "Usage: %s <image> <directory>\n", argv[0]);
+        return 2;
+    }
+
     fkfs_t fs;
     if (!fkfs_create(&fs)) {
         return false;
     }
 
-    if (!sd_raw_file_initialize(&fs.sd, "/home/jlewallen/fieldkit/testing/data/fkn-jacob/raw-sd-1.img")) {
+    if (!sd_raw_file_initialize(&fs.sd, argv[1])) {
         fprintf(stderr, "error: Unable to open file.\n");
         return 2;
     }
@@ -68,12 +75,17 @@ int main() {
 
     fkfs_log_statistics(&fs);
 
-    if (!extract(&fs, FKFS_FILE_LOG, "FK.LOG")) {
-        fprintf(stderr, "error: Unable to extract file.\n");
-        return 2;
+    std::string slash = "/";
+    std::string path = argv[2] + slash;
+
+    if (true) {
+        if (!extract(&fs, FKFS_FILE_LOG, path + "FK.LOG")) {
+            fprintf(stderr, "error: Unable to extract file.\n");
+            return 2;
+        }
     }
 
-    if (!extract(&fs, FKFS_FILE_DATA, "DATA.BIN")) {
+    if (!extract(&fs, FKFS_FILE_DATA, path + "DATA.BIN")) {
         fprintf(stderr, "error: Unable to extract file.\n");
         return 2;
     }
