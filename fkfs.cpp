@@ -1,9 +1,10 @@
-#include "fkfs.h"
+#include <Arduino.h>
+
 #include <string.h>
 #include <stdarg.h>
 #include <stdio.h>
 
-#include <Arduino.h>
+#include "fkfs.h"
 
 static size_t fkfs_printf(const char *f, ...) {
     char buffer[256];

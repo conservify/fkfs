@@ -1,6 +1,6 @@
 BUILD=build
 
-default: all
+default: all testing
 
 $(BUILD):
 	mkdir -p $(BUILD)
@@ -12,6 +12,9 @@ all: $(BUILD) gitdeps
 gitdeps:
 	simple-deps --config examples/simple/arduino-libraries
 	simple-deps --config examples/dma/arduino-libraries
+
+testing:
+	cd testing && make
 
 clean:
 	rm -rf $(BUILD)
