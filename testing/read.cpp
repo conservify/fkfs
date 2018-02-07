@@ -81,14 +81,12 @@ int main(int argc, const char **argv) {
     std::string slash = "/";
     std::string path = argv[2] + slash;
 
-    if (true) {
-        if (!extract(&fs, FKFS_FILE_LOG, path + "FK.LOG", false)) {
-            fprintf(stderr, "error: Unable to extract file.\n");
-            return 2;
-        }
+    if (!extract(&fs, FKFS_FILE_LOG, path + "FK.LOG", false)) {
+        fprintf(stderr, "error: Unable to extract file.\n");
+        return 2;
     }
 
-    if (!extract(&fs, FKFS_FILE_DATA, path + "DATA.BIN", true)) {
+    if (!extract(&fs, FKFS_FILE_DATA, path + "DATA.BIN", false)) {
         fprintf(stderr, "error: Unable to extract file.\n");
         return 2;
     }
