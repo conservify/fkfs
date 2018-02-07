@@ -13,7 +13,7 @@ static constexpr uint8_t FKFS_FILE_DATA = 1;
 static constexpr uint8_t FKFS_FILE_PRIORITY_LOWEST = 255;
 static constexpr uint8_t FKFS_FILE_PRIORITY_HIGHEST = 0;
 
-int extract(fkfs_t *fs, uint8_t id, std::string filename) {
+int extract(fkfs_t *fs, uint8_t id, std::string filename, bool verbose) {
     fkfs_file_iter_t iter = { 0 };
     fkfs_iterator_token_t token =  { 0x0 };
     fkfs_iterator_config_t config = {
@@ -29,12 +29,15 @@ int extract(fkfs_t *fs, uint8_t id, std::string filename) {
     printf("Extracting %s...\n", filename.c_str());
 
     while (fkfs_file_iterate(fs, id, &config, &iter, &token)) {
-        char buffer[iter.size + 1];
-        memcpy(buffer, iter.data, iter.size);
-        buffer[iter.size] = 0;
-        fprintf(fp, "%s", buffer);
+        fwrite(iter.data, 1, iter.size, fp);
 
-        printf("Block: %d\n", iter.size);
+        if (verbose) {
+            printf("%d ", iter.size);
+        }
+    }
+
+    if (verbose) {
+        printf("\n");
     }
 
     fclose(fp);
@@ -79,13 +82,13 @@ int main(int argc, const char **argv) {
     std::string path = argv[2] + slash;
 
     if (true) {
-        if (!extract(&fs, FKFS_FILE_LOG, path + "FK.LOG")) {
+        if (!extract(&fs, FKFS_FILE_LOG, path + "FK.LOG", false)) {
             fprintf(stderr, "error: Unable to extract file.\n");
             return 2;
         }
     }
 
-    if (!extract(&fs, FKFS_FILE_DATA, path + "DATA.BIN")) {
+    if (!extract(&fs, FKFS_FILE_DATA, path + "DATA.BIN", true)) {
         fprintf(stderr, "error: Unable to extract file.\n");
         return 2;
     }
