@@ -18,7 +18,7 @@ static size_t fkfs_printf(const char *f, ...) {
 
 static size_t (*fkfs_log_function_ptr)(const char *f, ...) = fkfs_printf;
 
-#define FKFS_FIRST_BLOCK           6000
+#define FKFS_FIRST_BLOCK           8000
 #define FKFS_SEEK_BLOCKS_MAX       5
 
 // This is for testing wrap around.
@@ -504,6 +504,11 @@ uint8_t fkfs_file_truncate_all(fkfs_t *fs) {
     for (auto i = 0; i < FKFS_FILES_MAX; ++i) {
         fkfs_file_truncate(fs, i);
     }
+    return true;
+}
+
+uint8_t fkfs_file_iterator_reopen(fkfs_t *fs, fkfs_iterator_token_t *token) {
+    token->lastBlock = fs->header.block;
     return true;
 }
 

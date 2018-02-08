@@ -106,6 +106,8 @@ uint8_t fkfs_file_truncate(fkfs_t *fs, uint8_t fileNumber);
 
 uint8_t fkfs_file_truncate_all(fkfs_t *fs);
 
+uint8_t fkfs_file_iterator_reopen(fkfs_t *fs, fkfs_iterator_token_t *token);
+
 uint8_t fkfs_file_iterate(fkfs_t *fs, uint8_t fileNumber, fkfs_iterator_config_t *config, fkfs_file_iter_t *iter, fkfs_iterator_token_t *token);
 
 uint8_t fkfs_log_statistics(fkfs_t *fs);
