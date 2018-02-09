@@ -515,6 +515,10 @@ uint8_t fkfs_file_iterator_reopen(fkfs_t *fs, uint8_t fileNumber, fkfs_iterator_
     return true;
 }
 
+static bool fkfs_file_iterator_done(fkfs_iterator_token_t *token) {
+    return token->block > token->lastBlock || (token->block == token->lastBlock && token->offset >= token->lastOffset);
+}
+
 uint8_t fkfs_file_iterate(fkfs_t *fs, uint8_t fileNumber, fkfs_iterator_config_t *config, fkfs_file_iter_t *iter, fkfs_iterator_token_t *token) {
     fkfs_file_t *file = &fs->header.files[fileNumber];
 
@@ -544,13 +548,15 @@ uint8_t fkfs_file_iterate(fkfs_t *fs, uint8_t fileNumber, fkfs_iterator_config_t
     auto lastStatus = started;
     auto maxBlocks = config->maxBlocks;
 
-    if (iter->token.block >= iter->token.lastBlock && iter->token.offset >= iter->token.lastOffset) {
+    if (fkfs_file_iterator_done(&iter->token)) {
+        fkfs_log("fkfs: scanning: iterator done (%d)", iter->token.block);
         return false;
     }
 
     do {
         // Make sure the block is loaded up into the cache.
         if (!fkfs_block_ensure(fs, iter->token.block)) {
+            fkfs_log("fkfs: unable to ensure block %d", iter->token.block);
             return false;
         }
 
@@ -578,6 +584,16 @@ uint8_t fkfs_file_iterate(fkfs_t *fs, uint8_t fileNumber, fkfs_iterator_config_t
             }
 
             iter->token.offset += entry->available + sizeof(fkfs_entry_t);
+
+            if (fkfs_file_iterator_done(&iter->token)) {
+                fkfs_log("fkfs: scanning: iterator done (%d)", iter->token.block);
+                token->block = iter->token.block;
+                token->offset = iter->token.offset;
+                token->lastBlock = iter->token.lastBlock;
+                token->lastOffset = iter->token.lastOffset;
+                token->size = iter->token.size;
+                return false;
+            }
         }
         else {
             fkfs_log_verbose("fkfs: scanning: block (%d, %d)", iter->token.block, iter->token.offset);
@@ -586,8 +602,8 @@ uint8_t fkfs_file_iterate(fkfs_t *fs, uint8_t fileNumber, fkfs_iterator_config_t
             iter->token.offset = 0;
 
             // When we started we remembered where to stop.
-            if (iter->token.block >= iter->token.lastBlock && iter->token.offset >= iter->token.lastOffset) {
-                fkfs_log("fkfs: scanning: last-block reached (%d)", iter->token.block);
+            if (fkfs_file_iterator_done(&iter->token)) {
+                fkfs_log("fkfs: scanning: iterator done (%d)", iter->token.block);
                 token->block = iter->token.block;
                 token->offset = iter->token.offset;
                 token->lastBlock = iter->token.lastBlock;
@@ -606,7 +622,7 @@ uint8_t fkfs_file_iterate(fkfs_t *fs, uint8_t fileNumber, fkfs_iterator_config_t
             auto maxBlocksReached = config->maxBlocks > 0 && --maxBlocks == 0;
             auto maxTimeReached = config->maxTime > 0 && (millis() - started) > config->maxTime;
             if (maxBlocksReached || maxTimeReached) {
-                fkfs_log_verbose("fkfs: scanning: max reached (%d)", iter->token.block);
+                fkfs_log("fkfs: scanning: max reached (%d)", iter->token.block);
                 token->block = iter->token.block;
                 token->offset = iter->token.offset;
                 token->lastBlock = iter->token.lastBlock;
