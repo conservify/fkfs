@@ -15,7 +15,6 @@ static constexpr uint8_t FKFS_FILE_PRIORITY_HIGHEST = 0;
 
 int extract(fkfs_t *fs, uint8_t id, std::string filename, bool verbose) {
     fkfs_file_iter_t iter = { 0 };
-    fkfs_iterator_token_t token =  { 0x0 };
     fkfs_iterator_config_t config = {
         .maxBlocks = UINT32_MAX,
         .maxTime = 0,
@@ -28,7 +27,7 @@ int extract(fkfs_t *fs, uint8_t id, std::string filename, bool verbose) {
 
     printf("Extracting %s...\n", filename.c_str());
 
-    while (fkfs_file_iterate(fs, id, &config, &iter, &token)) {
+    while (fkfs_file_iterate(fs, id, &config, &iter)) {
         fwrite(iter.data, 1, iter.size, fp);
 
         if (verbose) {
