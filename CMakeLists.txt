@@ -8,5 +8,7 @@ include(ArduinoMinimal)
 
 set(Adafruit_ZeroDMA_RECURSE True)
 
+add_definitions(-DFKFS_LOGGING)
+
 add_subdirectory(examples/simple)
 add_subdirectory(examples/dma)

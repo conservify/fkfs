@@ -24,7 +24,11 @@ static size_t (*fkfs_log_function_ptr)(const char *f, ...) = fkfs_printf;
 // This is for testing wrap around.
 #define FKFS_TESTING_LAST_BLOCK    UINT32_MAX
 
+#ifdef FKFS_LOGGING
 #define fkfs_log(f, ...)           fkfs_log_function_ptr(f, ##__VA_ARGS__)
+#else
+#define fkfs_log(f, ...)
+#endif
 
 #ifdef FKFS_LOGGING_VERBOSE
 #define fkfs_log_verbose(f, ...)   fkfs_log(f, ##__VA_ARGS__)
