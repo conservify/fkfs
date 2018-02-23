@@ -525,6 +525,12 @@ uint8_t fkfs_file_iterator_done(fkfs_t *fs, fkfs_file_iter_t *iter) {
     return iter->token.block > iter->token.lastBlock || (iter->token.block == iter->token.lastBlock && iter->token.offset >= iter->token.lastOffset);
 }
 
+uint8_t fkfs_file_iterator_move_end(fkfs_t *fs, uint8_t fileNumber, fkfs_file_iter_t *iter) {
+    iter->token.block = iter->token.lastBlock;
+    iter->token.offset = iter->token.lastOffset;
+    return true;
+}
+
 uint8_t fkfs_file_iterator_resume(fkfs_t *fs, uint8_t fileNumber, fkfs_file_iter_t *iter, fkfs_iterator_token_t *token) {
     iter->token.block = token->block;
     iter->token.offset = token->offset;
