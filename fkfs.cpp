@@ -73,6 +73,15 @@ static uint8_t fkfs_header_crc_update(fkfs_header_t *header) {
     return actual;
 }
 
+void fkfs_statistics_zero(fkfs_statistics_t *fks) {
+    fks->blockReads = 0;
+    fks->blockWrites = 0;
+    fks->iterateCalls = 0;
+    fks->iterateTime = 0;
+    fks->writeTime = 0;
+    fks->readTime = 0;
+}
+
 uint8_t fkfs_configure_logging(size_t (*log_function_ptr)(const char *f, ...)) {
     fkfs_log_function_ptr = log_function_ptr;
     return true;
@@ -118,11 +127,39 @@ uint8_t fkfs_get_file(fkfs_t *fs, uint8_t fileNumber, fkfs_file_info_t *info) {
     return true;
 }
 
+static uint8_t fkfs_read_block(fkfs_t *fs, uint32_t block, uint8_t *buffer) {
+    fs->statistics.blockReads++;
+
+    auto started = millis();
+    auto status = true;
+    if (!sd_raw_read_block(&fs->sd, block, (uint8_t *)buffer)) {
+        status = false;
+    }
+
+    fs->statistics.readTime += millis() - started;
+
+    return status;
+}
+
+static uint8_t fkfs_write_block(fkfs_t *fs, uint32_t block, uint8_t *buffer) {
+    fs->statistics.blockWrites++;
+
+    auto started = millis();
+    auto status = true;
+    if (!sd_raw_write_block(&fs->sd, block, (uint8_t *)buffer)) {
+        status = false;
+    }
+
+    fs->statistics.writeTime += millis() - started;
+
+    return status;
+}
+
 static uint8_t fkfs_header_write(fkfs_t *fs, bool wipe) {
     uint8_t buffer[SD_RAW_BLOCK_SIZE] = { 0 };
 
     if (!wipe) {
-        if (!sd_raw_read_block(&fs->sd, 0, (uint8_t *)buffer)) {
+        if (!fkfs_read_block(fs, 0, (uint8_t *)buffer)) {
             return false;
         }
     }
@@ -133,7 +170,7 @@ static uint8_t fkfs_header_write(fkfs_t *fs, bool wipe) {
 
     memcpy((void *)&headers[fs->headerIndex], (void *)&fs->header, sizeof(fkfs_header_t));
 
-    if (!sd_raw_write_block(&fs->sd, 0, (uint8_t *)buffer)) {
+    if (!fkfs_write_block(fs, 0, (uint8_t *)buffer)) {
         return false;
     }
 
@@ -145,7 +182,7 @@ static uint8_t fkfs_block_ensure(fkfs_t *fs, uint32_t block) {
     }
 
     if (fs->cachedBlockNumber != block) {
-        if (!sd_raw_read_block(&fs->sd, block, (uint8_t *)fs->buffer)) {
+        if (!fkfs_read_block(fs, block, (uint8_t *)fs->buffer)) {
             return false;
         }
         fs->cachedBlockNumber = block;
@@ -159,7 +196,9 @@ uint8_t fkfs_initialize(fkfs_t *fs, bool wipe) {
 
     memzero(fs->buffer, sizeof(SD_RAW_BLOCK_SIZE));
 
-    if (!sd_raw_read_block(&fs->sd, 0, (uint8_t *)fs->buffer)) {
+    fkfs_statistics_zero(&fs->statistics);
+
+    if (!fkfs_read_block(fs, 0, (uint8_t *)fs->buffer)) {
         return false;
     }
 
@@ -351,7 +390,7 @@ static uint8_t fkfs_block_available_offset(fkfs_t *fs, fkfs_file_t *file, uint8_
 
 static uint8_t fkfs_fsync(fkfs_t *fs) {
     if (fs->cachedBlockDirty) {
-        if (!sd_raw_write_block(&fs->sd, fs->header.block, (uint8_t *)fs->buffer)) {
+        if (!fkfs_write_block(fs, fs->header.block, (uint8_t *)fs->buffer)) {
             return false;
         }
         fs->cachedBlockNumber = UINT32_MAX;
@@ -411,7 +450,7 @@ static uint8_t fkfs_file_allocate_block(fkfs_t *fs, uint8_t fileNumber, uint16_t
         // If this isn't the block we have cached then read the block, this is
         // for when we've moved to a new block or were just opened.
         if (fs->cachedBlockNumber != fs->header.block) {
-            if (!sd_raw_read_block(&fs->sd, fs->header.block, (uint8_t *)fs->buffer)) {
+            if (!fkfs_read_block(fs, fs->header.block, (uint8_t *)fs->buffer)) {
                 return false;
             }
             fs->cachedBlockNumber = fs->header.block;
@@ -542,7 +581,9 @@ uint8_t fkfs_file_iterator_resume(fkfs_t *fs, uint8_t fileNumber, fkfs_file_iter
 }
 
 uint8_t fkfs_file_iterate(fkfs_t *fs, uint8_t fileNumber, fkfs_iterator_config_t *config, fkfs_file_iter_t *iter) {
-    fkfs_file_t *file = &fs->header.files[fileNumber];
+    auto file = &fs->header.files[fileNumber];
+
+    fs->statistics.iterateCalls++;
 
     // Begin with the first block in the file.
     if (iter->token.block == 0) {
@@ -564,12 +605,13 @@ uint8_t fkfs_file_iterate(fkfs_t *fs, uint8_t fileNumber, fkfs_iterator_config_t
     auto started = millis();
     auto lastStatus = started;
     auto maxBlocks = config->maxBlocks;
+    auto success = false;
 
     do {
         // Make sure the block is loaded up into the cache.
         if (!fkfs_block_ensure(fs, iter->token.block)) {
             fkfs_log("fkfs: unable to ensure block %d", iter->token.block);
-            return false;
+            break;
         }
 
         // Find the next block of the file in the cached memory block.
@@ -581,7 +623,8 @@ uint8_t fkfs_file_iterate(fkfs_t *fs, uint8_t fileNumber, fkfs_iterator_config_t
                 iter->size = entry->size;
                 iter->data = ptr + sizeof(fkfs_entry_t);
                 iter->token.offset += entry->available + sizeof(fkfs_entry_t);
-                return true;
+                success = true;
+                break;
             } else {
                 fkfs_log_verbose("fkfs: scanning: wrong file (%d) (%d, %d)", entry->file, iter->token.block, iter->token.offset);
             }
@@ -590,7 +633,7 @@ uint8_t fkfs_file_iterate(fkfs_t *fs, uint8_t fileNumber, fkfs_iterator_config_t
 
             if (fkfs_file_iterator_done(fs, iter)) {
                 fkfs_log("fkfs: scanning: iterator done (%d)", iter->token.block);
-                return false;
+                break;
             }
         }
         else {
@@ -602,7 +645,7 @@ uint8_t fkfs_file_iterate(fkfs_t *fs, uint8_t fileNumber, fkfs_iterator_config_t
             // When we started we remembered where to stop.
             if (fkfs_file_iterator_done(fs, iter)) {
                 fkfs_log("fkfs: scanning: iterator done (%d)", iter->token.block);
-                return false;
+                break;
             }
 
             // Wrap around logic, back to the beginning of the SD. It will now
@@ -616,7 +659,7 @@ uint8_t fkfs_file_iterate(fkfs_t *fs, uint8_t fileNumber, fkfs_iterator_config_t
             auto maxTimeReached = config->maxTime > 0 && (millis() - started) > config->maxTime;
             if (maxBlocksReached || maxTimeReached) {
                 fkfs_log("fkfs: scanning: max reached (%d)", iter->token.block);
-                return false;
+                break;
             }
         }
 
@@ -626,6 +669,10 @@ uint8_t fkfs_file_iterate(fkfs_t *fs, uint8_t fileNumber, fkfs_iterator_config_t
         }
     }
     while (true);
+
+    fs->statistics.iterateTime += millis() - started;
+
+    return success;
 }
 
 uint8_t fkfs_log_statistics(fkfs_t *fs) {

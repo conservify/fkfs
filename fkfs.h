@@ -49,6 +49,17 @@ typedef struct fkfs_file_info_t {
     char name[FKFS_FILE_NAME_MAX];
 } fkfs_file_info_t;
 
+typedef struct fkfs_statistics_t {
+    uint32_t blockReads;
+    uint32_t blockWrites;
+    uint32_t iterateCalls;
+    uint32_t iterateTime;
+    uint32_t writeTime;
+    uint32_t readTime;
+} fkfs_statistics_t;
+
+void fkfs_statistics_zero(fkfs_statistics_t *fks);
+
 typedef struct fkfs_t {
     uint8_t headerIndex;
     uint8_t cachedBlockDirty;
@@ -58,6 +69,7 @@ typedef struct fkfs_t {
     sd_raw_t sd;
     uint8_t buffer[SD_RAW_BLOCK_SIZE];
     fkfs_file_runtime_settings_t files[FKFS_FILES_MAX];
+    fkfs_statistics_t statistics;
 } fkfs_t;
 
 typedef struct fkfs_iterator_token_t {
