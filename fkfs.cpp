@@ -63,12 +63,12 @@ static uint16_t crc16_update(uint16_t start, uint8_t *p, uint16_t n) {
 }
 
 static uint8_t fkfs_header_crc_valid(fkfs_header_t *header) {
-    uint16_t actual = crc16_update(0, (uint8_t *)header, FKFS_HEADER_SIZE_MINUS_CRC);
+    uint16_t actual = crc16_update(31337, (uint8_t *)header, FKFS_HEADER_SIZE_MINUS_CRC);
     return header->crc == actual;
 }
 
 static uint8_t fkfs_header_crc_update(fkfs_header_t *header) {
-    uint16_t actual = crc16_update(0, (uint8_t *)header, FKFS_HEADER_SIZE_MINUS_CRC);
+    uint16_t actual = crc16_update(31337, (uint8_t *)header, FKFS_HEADER_SIZE_MINUS_CRC);
     header->crc = actual;
     return actual;
 }
@@ -268,20 +268,6 @@ uint8_t fkfs_initialize(fkfs_t *fs, bool wipe) {
     return true;
 }
 
-uint8_t fkfs_touch(fkfs_t *fs, uint32_t time) {
-    fs->header.time = time;
-
-    if (!fkfs_header_write(fs, false)) {
-        return false;
-    }
-
-    return true;
-}
-
-uint8_t fkfs_flush(fkfs_t *fs) {
-    return fkfs_touch(fs, millis());
-}
-
 static uint16_t fkfs_block_crc(fkfs_t *fs, fkfs_file_t *file, fkfs_entry_t *entry, uint8_t *data) {
     uint16_t crc = file->version;
 
@@ -413,6 +399,28 @@ static uint8_t fkfs_fsync(fkfs_t *fs) {
     fs->cachedBlockDirty = false;
 
     fkfs_log("fkfs: sync!");
+
+    return true;
+}
+
+uint8_t fkfs_touch(fkfs_t *fs, uint32_t time) {
+    fs->header.time = time;
+
+    if (!fkfs_header_write(fs, false)) {
+        return false;
+    }
+
+    return true;
+}
+
+uint8_t fkfs_flush(fkfs_t *fs) {
+    if (!fkfs_touch(fs, millis())) {
+        return false;
+    }
+
+    if (!fkfs_fsync(fs)) {
+        return false;
+    }
 
     return true;
 }
