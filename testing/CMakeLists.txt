@@ -9,3 +9,4 @@ include_directories(.)
 include_directories(..)
 
 add_executable(read read.cpp hal.cpp ../fkfs.cpp)
+add_executable(tester test.cpp hal.cpp ../fkfs.cpp)

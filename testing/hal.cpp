@@ -31,9 +31,12 @@ sd_raw_file_t *sd_raw_file(sd_raw_t *sd) {
 
 uint8_t sd_raw_file_initialize(sd_raw_t *sd, const char *path) {
     auto sdf = sd_raw_file(sd);
-    sdf->fp = fopen(path, "rw");
+    sdf->fp = fopen(path, "r+b");
     if (sdf->fp == nullptr) {
-        return false;
+        sdf->fp = fopen(path, "w+b");
+        if (sdf->fp == nullptr) {
+            return false;
+        }
     }
 
     return true;
@@ -47,8 +50,21 @@ uint8_t sd_raw_file_close(sd_raw_t *sd) {
 
 uint8_t sd_raw_read_block(sd_raw_t *sd, uint32_t block, uint8_t *destiny) {
     auto sdf = sd_raw_file(sd);
-    if (fseek(sdf->fp, SD_RAW_BLOCK_SIZE * block, SEEK_SET) != 0) {
-        fprintf(stderr, "error: Unable to seed to block %d\n", block);
+
+    if (fseek(sdf->fp, 0, SEEK_END) != 0) {
+        fprintf(stderr, "error: Unable to seek to block %d\n", block);
+        return false;
+    }
+
+    auto lengthOfFile = ftell(sdf->fp);
+    auto position = SD_RAW_BLOCK_SIZE * block;
+
+    if (position + SD_RAW_BLOCK_SIZE > lengthOfFile) {
+        return true;
+    }
+
+    if (fseek(sdf->fp, position, SEEK_SET) != 0) {
+        fprintf(stderr, "error: Unable to seek to block %d\n", block);
         return false;
     }
 
@@ -61,7 +77,27 @@ uint8_t sd_raw_read_block(sd_raw_t *sd, uint32_t block, uint8_t *destiny) {
 
 uint8_t sd_raw_write_block(sd_raw_t *sd, uint32_t block, const uint8_t *source) {
     auto sdf = sd_raw_file(sd);
-    return 0;
+
+    if (fseek(sdf->fp, 0, SEEK_END) != 0) {
+        fprintf(stderr, "error: Unable to seek to block %d\n", block);
+        return false;
+    }
+
+    auto lengthOfFile = ftell(sdf->fp);
+    auto position = SD_RAW_BLOCK_SIZE * block;
+
+    printf("writing %d\n", block);
+
+    if (fseek(sdf->fp, position, SEEK_SET) != 0) {
+        fprintf(stderr, "error: Unable to seek to block %d\n", block);
+        return false;
+    }
+
+    if (fwrite(source, 1, SD_RAW_BLOCK_SIZE, sdf->fp) != SD_RAW_BLOCK_SIZE) {
+        fprintf(stderr, "error: Unable to write block %d\n", block);
+        return false;
+    }
+    return true;
 }
 
 uint32_t sd_raw_card_size(sd_raw_t *sd) {
