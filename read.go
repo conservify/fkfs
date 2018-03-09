@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/binary"
+	"flag"
 	"fmt"
 	"os"
 	"strings"
@@ -158,8 +159,23 @@ func ReadBlock(header *HeaderBlock, c Cursor, f *os.File) *Block {
 	}
 }
 
+type options struct {
+	Card string
+}
+
 func main() {
-	f, err := os.Open("/home/jlewallen/fkn-shah.img")
+	o := options{}
+
+	flag.StringVar(&o.Card, "card", "", "card/image to read")
+
+	flag.Parse()
+
+	if o.Card == "" {
+		flag.Usage()
+		os.Exit(2)
+	}
+
+	f, err := os.Open(o.Card)
 	if err != nil {
 		panic(err)
 	}
