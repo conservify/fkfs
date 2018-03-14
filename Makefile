@@ -5,9 +5,17 @@ default: all testing
 $(BUILD):
 	mkdir -p $(BUILD)
 
-all: $(BUILD) gitdeps
+all: $(BUILD) examples gitdeps build/fkfs-read-darwin-amd64 build/fkfs-read-linux-amd64
+
+examples:
 	cd $(BUILD) && cmake ../
 	cd $(BUILD) && make
+
+build/fkfs-read-darwin-amd64: src/*.go
+	env GOOS=darwin GOARCH=amd64 go build -o $@ $^
+
+build/fkfs-read-linux-amd64: src/*.go
+	env GOOS=linux GOARCH=amd64 go build -o $@ $^
 
 gitdeps:
 	simple-deps --config examples/simple/arduino-libraries

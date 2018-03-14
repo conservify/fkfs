@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"strings"
 	_ "unsafe"
@@ -163,6 +164,12 @@ type options struct {
 	Card string
 }
 
+type FileInfo struct {
+	Name string
+	File *os.File
+	Size int
+}
+
 func main() {
 	o := options{}
 
@@ -189,7 +196,7 @@ func main() {
 		Offset: 0,
 	}
 
-	files := make(map[uint8]*os.File)
+	files := make(map[uint8]*FileInfo)
 
 	for c.Block = 1; c.Block < header.Block; {
 		if c.Block == 0 {
@@ -203,7 +210,7 @@ func main() {
 			if files[b.Entry.File] == nil {
 				name := fmt.Sprintf("%s", strings.TrimRight(string(b.File.Name[:]), "\x00"))
 
-				fmt.Printf("Opening %s...\n", name)
+				log.Printf("Exporting %s...", name)
 
 				wf, err := os.OpenFile(name, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
 				if err != nil {
@@ -212,16 +219,26 @@ func main() {
 
 				defer wf.Close()
 
-				files[b.Entry.File] = wf
+				files[b.Entry.File] = &FileInfo{
+					Name: name,
+					File: wf,
+					Size: 0,
+				}
 			}
 
-			_, err = files[b.Entry.File].Write(b.Data)
+			_, err = files[b.Entry.File].File.Write(b.Data)
 			if err != nil {
 				panic(err)
 			}
 
+			files[b.Entry.File].Size += len(b.Data)
+
 		}
 
 		c = b.Next
+	}
+
+	for _, file := range files {
+		log.Printf("Saved %s (%d bytes)", file.Name, file.Size)
 	}
 }
