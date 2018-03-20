@@ -1,6 +1,8 @@
 #ifndef SD_RAW_DMA_H_INCLUDED
 #define SD_RAW_DMA_H_INCLUDED
 
+#ifdef ARDUINO
+
 #include <stdint.h>
 
 #include "sd_raw.h"
@@ -19,5 +21,7 @@ uint8_t sd_raw_dma_initialize(sd_raw_dma_t *sd_dma, sd_raw_t *sd, uint8_t *sourc
 uint8_t sd_raw_dma_write_block(sd_raw_dma_t *sd_dma, uint32_t block);
 
 uint8_t sd_raw_dma_read_block(sd_raw_dma_t *sd_dma, uint32_t block);
+
+#endif
 
 #endif

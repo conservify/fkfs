@@ -1,6 +1,7 @@
 #include "sd_raw.h"
 #include "sd_raw_internal.h"
 
+#include <Arduino.h>
 #include <SPI.h>
 
 uint8_t sd_raw_cs_high(sd_raw_t *sd) {

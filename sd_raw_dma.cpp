@@ -1,3 +1,5 @@
+#ifdef ARDUINO
+
 #include "sd_raw_dma.h"
 #include "sd_raw_internal.h"
 #undef min
@@ -154,3 +156,5 @@ uint8_t sd_raw_dma_read_block(sd_raw_dma_t *sd_dma, uint32_t block) {
 
     return true;
 }
+
+#endif
