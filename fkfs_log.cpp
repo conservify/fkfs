@@ -19,18 +19,17 @@ uint8_t fkfs_log_flush(fkfs_log_t *log) {
     return true;
 }
 
-uint8_t fkfs_log_append(fkfs_log_t *log, const char *str) {
-    size_t required = strlen(str);
-
+uint8_t fkfs_log_append_binary(fkfs_log_t *log, uint8_t *ptr, size_t length) {
+    size_t required = length;
     while (required > 0) {
         size_t available = FKFS_MAXIMUM_BLOCK_SIZE - log->position;
         size_t copy = required > available ? available : required;
 
-        memcpy((uint8_t *)log->buffer + log->position, str, copy);
+        memcpy((uint8_t *)log->buffer + log->position, ptr, copy);
 
         log->position += copy;
         required -= copy;
-        str += copy;
+        ptr += copy;
 
         if (log->position >= FKFS_MAXIMUM_BLOCK_SIZE) {
             if (!fkfs_log_flush(log)) {
@@ -38,8 +37,11 @@ uint8_t fkfs_log_append(fkfs_log_t *log, const char *str) {
             }
         }
     }
+}
 
-    return true;
+uint8_t fkfs_log_append(fkfs_log_t *log, const char *str) {
+    size_t required = strlen(str);
+    return fkfs_log_append_binary(log, (uint8_t *)str, required);
 }
 
 uint8_t fkfs_log_printf(fkfs_log_t *log, const char *format, ...) {
