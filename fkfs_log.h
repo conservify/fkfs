@@ -18,7 +18,7 @@ uint8_t fkfs_log_initialize(fkfs_log_t *log, fkfs_t *fs, uint8_t file);
 
 uint8_t fkfs_log_flush(fkfs_log_t *log);
 
-uint8_t fkfs_log_append_binary(fkfs_log_t *log, uint8_t *ptr, size_t length);
+uint8_t fkfs_log_append_binary(fkfs_log_t *log, uint8_t *ptr, size_t length, bool canSplit);
 
 uint8_t fkfs_log_append(fkfs_log_t *log, const char *str);
 
