@@ -561,11 +561,11 @@ uint8_t fkfs_file_truncate_all(fkfs_t *fs) {
 uint8_t fkfs_file_iterator_create(fkfs_t *fs, uint8_t fileNumber, fkfs_file_iter_t *iter) {
     fkfs_file_t *file = &fs->header.files[fileNumber];
     iter->token.file = fileNumber;
-    iter->token.block = 0;
+    iter->token.block = file->startBlock;
     iter->token.offset = 0;
-    iter->token.lastBlock = 0;
-    iter->token.lastOffset = 0;
-    iter->token.size = 0;
+    iter->token.lastBlock = fs->header.block;
+    iter->token.lastOffset = fs->header.offset;
+    iter->token.size = file->size;
     return true;
 }
 
@@ -582,6 +582,10 @@ uint8_t fkfs_file_iterator_reopen(fkfs_t *fs, fkfs_file_iter_t *iter, fkfs_itera
 
 uint8_t fkfs_file_iterator_done(fkfs_t *fs, fkfs_file_iter_t *iter) {
     return iter->token.block > iter->token.lastBlock || (iter->token.block == iter->token.lastBlock && iter->token.offset >= iter->token.lastOffset);
+}
+
+uint8_t fkfs_file_iterator_valid(fkfs_t *fs, fkfs_file_iter_t *iter) {
+    return iter->token.block > 0;
 }
 
 uint8_t fkfs_file_iterator_move_end(fkfs_t *fs, fkfs_file_iter_t *iter) {
@@ -601,26 +605,19 @@ uint8_t fkfs_file_iterator_resume(fkfs_t *fs, fkfs_file_iter_t *iter, fkfs_itera
 }
 
 uint8_t fkfs_file_iterate(fkfs_t *fs, fkfs_iterator_config_t *config, fkfs_file_iter_t *iter) {
-    auto file = &fs->header.files[iter->token.file];
-
     fs->statistics.iterateCalls++;
 
-    // Begin with the first block in the file.
-    if (iter->token.block == 0) {
-        iter->token.block = file->startBlock;
-        iter->token.offset = 0;
-        iter->token.lastBlock = fs->header.block;
-        iter->token.lastOffset = fs->header.offset;
-        iter->token.size = file->size;
-        fkfs_log_verbose("fkfs: scanning: starting (%d -> %d)", iter->token.block, iter->token.lastBlock);
-    } else {
-        fkfs_log_verbose("fkfs: scanning: resuming (%d, %d)", iter->token.block, iter->token.offset);
+    // Check for a valid token.
+    if (!fkfs_file_iterator_valid(fs, iter)) {
+        return false;
     }
 
     if (fkfs_file_iterator_done(fs, iter)) {
         fkfs_log("fkfs: scanning: iterator done (%d)", iter->token.block);
         return false;
     }
+
+    fkfs_log_verbose("fkfs: scanning: resuming (%d, %d)", iter->token.block, iter->token.offset);
 
     auto started = millis();
     auto lastStatus = started;

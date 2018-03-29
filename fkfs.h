@@ -128,6 +128,8 @@ uint8_t fkfs_file_iterator_resume(fkfs_t *fs, fkfs_file_iter_t *iter, fkfs_itera
 
 uint8_t fkfs_file_iterator_move_end(fkfs_t *fs, fkfs_file_iter_t *iter);
 
+uint8_t fkfs_file_iterator_valid(fkfs_t *fs, fkfs_file_iter_t *iter);
+
 uint8_t fkfs_file_iterate(fkfs_t *fs, fkfs_iterator_config_t *config, fkfs_file_iter_t *iter);
 
 uint8_t fkfs_file_iterator_done(fkfs_t *fs, fkfs_file_iter_t *iter);
