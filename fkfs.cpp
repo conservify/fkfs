@@ -558,8 +558,20 @@ uint8_t fkfs_file_truncate_all(fkfs_t *fs) {
     return true;
 }
 
-uint8_t fkfs_file_iterator_reopen(fkfs_t *fs, uint8_t fileNumber, fkfs_file_iter_t *iter, fkfs_iterator_token_t *token) {
+uint8_t fkfs_file_iterator_create(fkfs_t *fs, uint8_t fileNumber, fkfs_file_iter_t *iter) {
     fkfs_file_t *file = &fs->header.files[fileNumber];
+    iter->token.file = fileNumber;
+    iter->token.block = 0;
+    iter->token.offset = 0;
+    iter->token.lastBlock = 0;
+    iter->token.lastOffset = 0;
+    iter->token.size = 0;
+    return true;
+}
+
+uint8_t fkfs_file_iterator_reopen(fkfs_t *fs, fkfs_file_iter_t *iter, fkfs_iterator_token_t *token) {
+    fkfs_file_t *file = &fs->header.files[token->file];
+    iter->token.file = token->file;
     iter->token.block = token->block;
     iter->token.offset = token->offset;
     iter->token.lastBlock = fs->header.block;
@@ -572,13 +584,13 @@ uint8_t fkfs_file_iterator_done(fkfs_t *fs, fkfs_file_iter_t *iter) {
     return iter->token.block > iter->token.lastBlock || (iter->token.block == iter->token.lastBlock && iter->token.offset >= iter->token.lastOffset);
 }
 
-uint8_t fkfs_file_iterator_move_end(fkfs_t *fs, uint8_t fileNumber, fkfs_file_iter_t *iter) {
+uint8_t fkfs_file_iterator_move_end(fkfs_t *fs, fkfs_file_iter_t *iter) {
     iter->token.block = iter->token.lastBlock;
     iter->token.offset = iter->token.lastOffset;
     return true;
 }
 
-uint8_t fkfs_file_iterator_resume(fkfs_t *fs, uint8_t fileNumber, fkfs_file_iter_t *iter, fkfs_iterator_token_t *token) {
+uint8_t fkfs_file_iterator_resume(fkfs_t *fs, fkfs_file_iter_t *iter, fkfs_iterator_token_t *token) {
     iter->token.block = token->block;
     iter->token.offset = token->offset;
     iter->token.lastBlock = token->lastBlock;
@@ -588,8 +600,8 @@ uint8_t fkfs_file_iterator_resume(fkfs_t *fs, uint8_t fileNumber, fkfs_file_iter
     return true;
 }
 
-uint8_t fkfs_file_iterate(fkfs_t *fs, uint8_t fileNumber, fkfs_iterator_config_t *config, fkfs_file_iter_t *iter) {
-    auto file = &fs->header.files[fileNumber];
+uint8_t fkfs_file_iterate(fkfs_t *fs, fkfs_iterator_config_t *config, fkfs_file_iter_t *iter) {
+    auto file = &fs->header.files[iter->token.file];
 
     fs->statistics.iterateCalls++;
 
@@ -626,7 +638,7 @@ uint8_t fkfs_file_iterate(fkfs_t *fs, uint8_t fileNumber, fkfs_iterator_config_t
         auto ptr = fs->buffer + iter->token.offset;
         if (fkfs_block_check(fs, ptr) == FKFS_OFFSET_SEARCH_STATUS_GOOD) {
             auto entry = (fkfs_entry_t *)ptr;
-            if (entry->file == fileNumber) {
+            if (entry->file == iter->token.file) {
                 fkfs_log_verbose("fkfs: scanning: data (%d, %d)", iter->token.block, iter->token.offset);
                 iter->size = entry->size;
                 iter->data = ptr + sizeof(fkfs_entry_t);

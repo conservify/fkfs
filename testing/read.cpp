@@ -27,7 +27,9 @@ int extract(fkfs_t *fs, uint8_t id, std::string filename, bool verbose) {
 
     printf("Extracting %s...\n", filename.c_str());
 
-    while (fkfs_file_iterate(fs, id, &config, &iter)) {
+    fkfs_file_iterator_create(fs, id, &iter);
+
+    while (fkfs_file_iterate(fs, &config, &iter)) {
         fwrite(iter.data, 1, iter.size, fp);
 
         if (verbose) {
