@@ -101,6 +101,8 @@ uint8_t fkfs_initialize_file(fkfs_t *fs, uint8_t fileNumber, uint8_t priority, u
     strncpy(file->name, name, sizeof(file->name));
     file->version = random(UINT16_MAX);
     file->startBlock = FKFS_FIRST_BLOCK;
+    file->startOffset = 0;
+    file->endOffset = 0;
 
     return true;
 }
@@ -217,7 +219,9 @@ uint8_t fkfs_initialize(fkfs_t *fs, bool wipe) {
             fs->header.files[i].version = random(UINT16_MAX);
             fs->header.files[i].size = 0;
             fs->header.files[i].startBlock = fs->header.block;
+            fs->header.files[i].startOffset = 0;
             fs->header.files[i].endBlock = fs->header.block;
+            fs->header.files[i].endOffset = 0;
 
             fkfs_log("file[%d] sync=%d pri=%d sb=%d eb=%d version=%d size=%d '%s'", i,
                      fs->files[i].sync,
@@ -517,6 +521,7 @@ uint8_t fkfs_file_append(fkfs_t *fs, uint8_t fileNumber, uint16_t size, uint8_t 
     fs->cachedBlockDirty = true;
     fs->header.offset += required;
     fs->header.files[fileNumber].endBlock = fs->header.block;
+    fs->header.files[fileNumber].endOffset = fs->header.offset;
     fs->header.files[fileNumber].size += size;
 
     // If this file is configured to be fsync'd after every write that go ahead
@@ -543,6 +548,8 @@ uint8_t fkfs_file_truncate(fkfs_t *fs, uint8_t fileNumber) {
     file->version++;
     file->startBlock = fs->header.block;
     file->endBlock = file->startBlock;
+    file->startOffset = 0;
+    file->endOffset = 0;
     file->size = 0;
 
     return true;
