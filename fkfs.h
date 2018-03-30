@@ -81,6 +81,8 @@ typedef struct fkfs_iterator_token_t {
     uint32_t size;
 } fkfs_iterator_token_t;
 
+#define fkfs_token_empty    { 0, 0, 0, 0, 0, 0 }
+
 typedef struct fkfs_iterator_config_t {
     uint32_t maxBlocks;
     uint32_t maxTime;
