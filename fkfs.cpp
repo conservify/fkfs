@@ -548,6 +548,31 @@ uint8_t fkfs_file_truncate(fkfs_t *fs, uint8_t fileNumber) {
     return true;
 }
 
+static uint8_t calculate_file_size(fkfs_t *fs, uint8_t fileNumber) {
+    fkfs_file_t *file = &fs->header.files[fileNumber];
+    file->size = 0;
+
+    fkfs_file_iter_t iter;
+    fkfs_file_iterator_create(fs, fileNumber, &iter);
+
+    fkfs_iterator_config_t config = {
+        .maxBlocks = 10,
+        .maxTime = 0,
+    };
+    while (fkfs_file_iterate(fs, &config, &iter)) {
+        file->size += iter.size;
+    }
+    return true;
+}
+
+uint8_t fkfs_file_truncate_at(fkfs_t *fs, fkfs_file_iter_t *iter) {
+    fkfs_file_t *file = &fs->header.files[iter->token.file];
+
+    file->startBlock = iter->token.lastBlock;
+
+    return calculate_file_size(fs, iter->token.file);
+}
+
 uint8_t fkfs_file_truncate_all(fkfs_t *fs) {
     for (auto i = 0; i < FKFS_FILES_MAX; ++i) {
         fkfs_file_truncate(fs, i);
