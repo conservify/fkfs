@@ -278,11 +278,10 @@ static uint16_t fkfs_block_crc(fkfs_t *fs, fkfs_file_t *file, fkfs_entry_t *entr
 }
 
 #define FKFS_OFFSET_SEARCH_STATUS_GOOD      0
-#define FKFS_OFFSET_SEARCH_STATUS_FILE      1
-#define FKFS_OFFSET_SEARCH_STATUS_SIZE      2
-#define FKFS_OFFSET_SEARCH_STATUS_CRC       3
-#define FKFS_OFFSET_SEARCH_STATUS_PRIORITY  4
-#define FKFS_OFFSET_SEARCH_STATUS_EOB       5
+#define FKFS_OFFSET_SEARCH_STATUS_SIZE      1
+#define FKFS_OFFSET_SEARCH_STATUS_CRC       2
+#define FKFS_OFFSET_SEARCH_STATUS_PRIORITY  3
+#define FKFS_OFFSET_SEARCH_STATUS_EOB       4
 
 typedef struct fkfs_offset_search_t {
     uint16_t offset;
@@ -325,9 +324,6 @@ static uint8_t fkfs_block_available_offset(fkfs_t *fs, fkfs_file_t *file, uint8_
         search->status = fkfs_block_check(fs, iter);
 
         switch (search->status) {
-        case FKFS_OFFSET_SEARCH_STATUS_FILE:
-            fkfs_log_verbose("fkfs: invalid file at %d", search->offset);
-            break;
         case FKFS_OFFSET_SEARCH_STATUS_SIZE:
             fkfs_log_verbose("fkfs: invalid size at %d", search->offset);
             return true;
@@ -384,7 +380,7 @@ static uint8_t fkfs_fsync(fkfs_t *fs) {
     }
     else {
         // No reason to write anything if there's nothing dirty.
-        fkfs_log("fkfs: sync (ignored)");
+        fkfs_log_verbose("fkfs: sync (ignored)");
         return true;
     }
 
@@ -398,7 +394,7 @@ static uint8_t fkfs_fsync(fkfs_t *fs) {
     fs->cachedBlockNumber = UINT32_MAX;
     fs->cachedBlockDirty = false;
 
-    fkfs_log("fkfs: sync!");
+    fkfs_log_verbose("fkfs: sync!");
 
     return true;
 }
@@ -494,18 +490,19 @@ uint8_t fkfs_file_append(fkfs_t *fs, uint8_t fileNumber, uint16_t size, uint8_t 
         return false;
     }
 
-    fkfs_log("fkfs: allocating f#%d.%-3d.%-5d %3d[required = %d]",
-             fileNumber, fs->files[fileNumber].priority, file->version,
-             fs->header.block, required);
+    fkfs_log_verbose("fkfs: allocating f#%d %-3d.%-5d %3d[required = %d (+%d) = %d]",
+                     fileNumber, fs->files[fileNumber].priority, file->version,
+                     fs->header.block, size, sizeof(fkfs_entry_t), required);
 
     if (!fkfs_file_allocate_block(fs, fileNumber, required, size, &entry)) {
         return false;
     }
 
-    fkfs_log("fkfs: allocated  f#%d.%-3d.%-5d %3d[%-3d -> %-3d] %d",
+    fkfs_log("fkfs: allocated  f#%d %-3d.%-5d %3d[%-3d -> %-3d] [%d / %d] %d",
              fileNumber, fs->files[fileNumber].priority, file->version,
              fs->header.block,
              fs->header.offset, fs->header.offset + required,
+             size, required,
              SD_RAW_BLOCK_SIZE - (fs->header.offset + required));
 
     entry.file = fileNumber;
@@ -654,7 +651,7 @@ uint8_t fkfs_file_iterate(fkfs_t *fs, fkfs_iterator_config_t *config, fkfs_file_
             }
         }
         else {
-            fkfs_log_verbose("fkfs: scanning: block (%d, %d)", iter->token.block, iter->token.offset);
+            fkfs_log("fkfs: scanning: new block (%d, %d) %d", iter->token.block, iter->token.offset, check);
 
             iter->token.block++;
             iter->token.offset = 0;
