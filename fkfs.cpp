@@ -568,12 +568,31 @@ uint8_t fkfs_file_iterator_create(fkfs_t *fs, uint8_t fileNumber, fkfs_file_iter
 
 uint8_t fkfs_file_iterator_reopen(fkfs_t *fs, fkfs_file_iter_t *iter, fkfs_iterator_token_t *token) {
     fkfs_file_t *file = &fs->header.files[token->file];
+    if (file->size < token->size) {
+        fkfs_file_iterator_create(fs, token->file, iter);
+        return true;
+    }
     iter->token.file = token->file;
     iter->token.block = token->block;
     iter->token.offset = token->offset;
     iter->token.lastBlock = fs->header.block;
     iter->token.lastOffset = fs->header.offset;
     iter->token.size = file->size;
+    return true;
+}
+
+uint8_t fkfs_file_iterator_resume(fkfs_t *fs, fkfs_file_iter_t *iter, fkfs_iterator_token_t *token) {
+    fkfs_file_t *file = &fs->header.files[token->file];
+    if (file->size < token->size) {
+        fkfs_file_iterator_create(fs, token->file, iter);
+        return true;
+    }
+    iter->token.file = token->file;
+    iter->token.block = token->block;
+    iter->token.offset = token->offset;
+    iter->token.lastBlock = token->lastBlock;
+    iter->token.lastOffset = token->lastOffset;
+    iter->token.size = token->size;
     return true;
 }
 
@@ -588,16 +607,6 @@ uint8_t fkfs_file_iterator_valid(fkfs_t *fs, fkfs_file_iter_t *iter) {
 uint8_t fkfs_file_iterator_move_end(fkfs_t *fs, fkfs_file_iter_t *iter) {
     iter->token.block = iter->token.lastBlock;
     iter->token.offset = iter->token.lastOffset;
-    return true;
-}
-
-uint8_t fkfs_file_iterator_resume(fkfs_t *fs, fkfs_file_iter_t *iter, fkfs_iterator_token_t *token) {
-    iter->token.block = token->block;
-    iter->token.offset = token->offset;
-    iter->token.lastBlock = token->lastBlock;
-    iter->token.lastOffset = token->lastOffset;
-    iter->token.size = token->size;
-    fkfs_log_verbose("fkfs: scanning: resuming (%d -> %d)", iter->token.block, iter->token.lastBlock);
     return true;
 }
 
