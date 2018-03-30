@@ -20,15 +20,19 @@ uint8_t fkfs_log_flush(fkfs_log_t *log) {
 }
 
 uint8_t fkfs_log_append_binary(fkfs_log_t *log, uint8_t *ptr, size_t length, bool canSplit) {
+    if (!canSplit && (FKFS_MAXIMUM_BLOCK_SIZE - log->position) < length) {
+        if (length >= FKFS_MAXIMUM_BLOCK_SIZE) {
+            return false;
+        }
+        if (!fkfs_log_flush(log)) {
+            return false;
+        }
+    }
+
     size_t required = length;
     while (required > 0) {
         size_t available = FKFS_MAXIMUM_BLOCK_SIZE - log->position;
         size_t copy = required > available ? available : required;
-
-        if (!canSplit && available != length) {
-            // fk_assert(length <= FKFS_MAXIMUM_BLOCK_SIZE);
-            fkfs_log_flush(log);
-        }
 
         memcpy((uint8_t *)log->buffer + log->position, ptr, copy);
 
