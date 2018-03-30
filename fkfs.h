@@ -8,14 +8,16 @@
 
 #define memzero(ptr, sz)          memset(ptr, 0, sz)
 
-constexpr uint16_t FKFS_FILES_MAX = 6;
+constexpr uint16_t FKFS_FILES_MAX = 4;
 constexpr uint8_t FKFS_FILE_NAME_MAX = 12;
 
 typedef struct fkfs_file_t {
     char name[FKFS_FILE_NAME_MAX];
     uint16_t version;
     uint32_t startBlock;
+    uint16_t startOffset;
     uint32_t endBlock;
+    uint16_t endOffset;
     uint32_t size;
 } __attribute__((packed)) fkfs_file_t;
 
