@@ -6,7 +6,7 @@
 
 #include "fkfs.h"
 
-static size_t fkfs_printf(const char *f, ...) {
+size_t fkfs_printf(const char *f, ...) {
     char buffer[256];
     va_list args;
     va_start(args, f);
@@ -131,6 +131,8 @@ uint8_t fkfs_get_file(fkfs_t *fs, uint8_t fileNumber, fkfs_file_info_t *info) {
 
 static uint8_t fkfs_read_block(fkfs_t *fs, uint32_t block, uint8_t *buffer) {
     fs->statistics.blockReads++;
+
+    fkfs_log("fkfs: read block %d (%x)", block, buffer);
 
     auto started = millis();
     auto status = true;
@@ -286,6 +288,18 @@ static uint16_t fkfs_block_crc(fkfs_t *fs, fkfs_file_t *file, fkfs_entry_t *entr
 #define FKFS_OFFSET_SEARCH_STATUS_CRC       2
 #define FKFS_OFFSET_SEARCH_STATUS_PRIORITY  3
 #define FKFS_OFFSET_SEARCH_STATUS_EOB       4
+
+static const char *block_check_str(uint8_t check) {
+    switch (check) {
+    case FKFS_OFFSET_SEARCH_STATUS_GOOD: return "good";
+    case FKFS_OFFSET_SEARCH_STATUS_SIZE: return "size";
+    case FKFS_OFFSET_SEARCH_STATUS_CRC: return "crc";
+    case FKFS_OFFSET_SEARCH_STATUS_PRIORITY: return "priority";
+    case FKFS_OFFSET_SEARCH_STATUS_EOB: return "eob";
+    default:
+        return "unknown";
+    }
+}
 
 typedef struct fkfs_offset_search_t {
     uint16_t offset;
@@ -502,9 +516,8 @@ uint8_t fkfs_file_append(fkfs_t *fs, uint8_t fileNumber, uint16_t size, uint8_t 
         return false;
     }
 
-    fkfs_log("fkfs: allocated  f#%d %-3d.%-5d %3d[%-3d -> %-3d] [%d / %d] %d",
-             fileNumber, fs->files[fileNumber].priority, file->version,
-             fs->header.block,
+    fkfs_log("fkfs: allocated  f#%d %3d[%-3d -> %-3d] [%3d / %3d] %d",
+             fileNumber, fs->header.block,
              fs->header.offset, fs->header.offset + required,
              size, required,
              SD_RAW_BLOCK_SIZE - (fs->header.offset + required));
@@ -542,6 +555,8 @@ uint8_t fkfs_file_append(fkfs_t *fs, uint8_t fileNumber, uint16_t size, uint8_t 
 
 uint8_t fkfs_file_truncate(fkfs_t *fs, uint8_t fileNumber) {
     fkfs_file_t *file = &fs->header.files[fileNumber];
+
+    fkfs_log("fkfs: truncate %d", fileNumber);
 
     // Bump versions so CRC checks fail on previous blocks and store the new
     // starting block for the file.
@@ -595,6 +610,9 @@ uint8_t fkfs_file_iterator_create(fkfs_t *fs, uint8_t fileNumber, fkfs_file_iter
     iter->token.lastBlock = file->endBlock;
     iter->token.lastOffset = file->endOffset;
     iter->token.size = file->size;
+
+    fkfs_log("fkfs: iter create %d", fileNumber);
+
     return true;
 }
 
@@ -610,6 +628,9 @@ uint8_t fkfs_file_iterator_reopen(fkfs_t *fs, fkfs_file_iter_t *iter, fkfs_itera
     iter->token.lastBlock = file->endBlock;
     iter->token.lastOffset = file->endOffset;
     iter->token.size = file->size;
+
+    fkfs_log("fkfs: iter reopen %d", token->file);
+
     return true;
 }
 
@@ -625,6 +646,9 @@ uint8_t fkfs_file_iterator_resume(fkfs_t *fs, fkfs_file_iter_t *iter, fkfs_itera
     iter->token.lastBlock = token->lastBlock;
     iter->token.lastOffset = token->lastOffset;
     iter->token.size = token->size;
+
+    fkfs_log("fkfs: iter resume %d", token->file);
+
     return true;
 }
 
@@ -647,6 +671,7 @@ uint8_t fkfs_file_iterate(fkfs_t *fs, fkfs_iterator_config_t *config, fkfs_file_
 
     // Check for a valid token.
     if (!fkfs_file_iterator_valid(fs, iter)) {
+        fkfs_log("fkfs: scanning: iterator invalid");
         return false;
     }
 
@@ -676,15 +701,18 @@ uint8_t fkfs_file_iterate(fkfs_t *fs, fkfs_iterator_config_t *config, fkfs_file_
             auto entry = (fkfs_entry_t *)ptr;
             if (check == FKFS_OFFSET_SEARCH_STATUS_GOOD) {
                 if (entry->file == iter->token.file) {
-                    fkfs_log("fkfs: scanning: return data (%d, %d)", iter->token.block, iter->token.offset);
+                    fkfs_log("fkfs: scanning: DATA (%d, %3d) %d", iter->token.block, iter->token.offset, entry->size);
                     iter->size = entry->size;
                     iter->data = ptr + sizeof(fkfs_entry_t);
                     iter->token.offset += entry->available + sizeof(fkfs_entry_t);
                     success = true;
                     break;
                 } else {
-                    fkfs_log("fkfs: scanning: wrong file (%d) (%d, %d)", entry->file, iter->token.block, iter->token.offset);
+                    fkfs_log("fkfs: scanning: file (%d, %3d) (%d)", iter->token.block, iter->token.offset, entry->file);
                 }
+            }
+            else {
+                fkfs_log("fkfs: scanning:      (%d, %3d) %s", iter->token.block, iter->token.offset, block_check_str(check));
             }
 
             iter->token.offset += entry->available + sizeof(fkfs_entry_t);
@@ -695,7 +723,7 @@ uint8_t fkfs_file_iterate(fkfs_t *fs, fkfs_iterator_config_t *config, fkfs_file_
             }
         }
         else {
-            fkfs_log("fkfs: scanning: new block (%d, %d) %d", iter->token.block, iter->token.offset, check);
+            fkfs_log("fkfs: scanning:      (%d, %3d) %s", iter->token.block, iter->token.offset, block_check_str(check));
 
             iter->token.block++;
             iter->token.offset = 0;
