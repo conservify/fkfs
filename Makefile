@@ -5,11 +5,11 @@ default: all testing
 $(BUILD):
 	mkdir -p $(BUILD)
 
-all: $(BUILD) examples gitdeps build/fkfs-read-darwin-amd64 build/fkfs-read-linux-amd64
+all: $(BUILD) gitdeps build/fkfs-read-darwin-amd64 build/fkfs-read-linux-amd64
+	cd $(BUILD) && cmake ../ && make
 
-examples:
-	cd $(BUILD) && cmake ../
-	cd $(BUILD) && make
+test: all
+	cd $(BUILD) && make test
 
 build/fkfs-read-darwin-amd64: src/*.go
 	env GOOS=darwin GOARCH=amd64 go build -o $@ $^

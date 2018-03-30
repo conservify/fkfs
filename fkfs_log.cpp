@@ -46,6 +46,8 @@ uint8_t fkfs_log_append_binary(fkfs_log_t *log, uint8_t *ptr, size_t length, boo
             }
         }
     }
+
+    return true;
 }
 
 uint8_t fkfs_log_append(fkfs_log_t *log, const char *str) {

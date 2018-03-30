@@ -10,5 +10,8 @@ set(Adafruit_ZeroDMA_RECURSE True)
 
 add_definitions(-DFKFS_LOGGING)
 
+enable_testing()
+
+add_subdirectory(test)
 add_subdirectory(examples/simple)
 add_subdirectory(examples/dma)

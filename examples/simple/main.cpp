@@ -33,7 +33,9 @@ uint8_t fkfs_single_record_read(fkfs_single_record_t *sr, uint8_t *ptr, uint16_t
         .maxTime = 0,
     };
 
-    if (fkfs_file_iterate(sr->fs, FKFS_FILE_LOG, &config, &iter)) {
+    fkfs_file_iterator_create(sr->fs, FKFS_FILE_LOG, &iter);
+
+    if (fkfs_file_iterate(sr->fs, &config, &iter)) {
         if (iter.size != size) {
             return false;
         }
@@ -145,7 +147,10 @@ void setup() {
         .maxBlocks = 10,
         .maxTime = 0,
     };
-    while (fkfs_file_iterate(&fs, FKFS_FILE_LOG, &config, &iter)) {
+
+    fkfs_file_iterator_create(&fs, FKFS_FILE_LOG, &iter);
+
+    while (fkfs_file_iterate(&fs, &config, &iter)) {
         Serial.print("fkfs: iter: ");
         Serial.print(iter.token.block);
         Serial.print(" ");
