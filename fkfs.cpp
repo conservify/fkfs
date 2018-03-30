@@ -639,17 +639,20 @@ uint8_t fkfs_file_iterate(fkfs_t *fs, fkfs_iterator_config_t *config, fkfs_file_
 
         // Find the next block of the file in the cached memory block.
         auto ptr = fs->buffer + iter->token.offset;
-        if (fkfs_block_check(fs, ptr) == FKFS_OFFSET_SEARCH_STATUS_GOOD) {
+        auto check = fkfs_block_check(fs, ptr);
+        if (check == FKFS_OFFSET_SEARCH_STATUS_CRC || check == FKFS_OFFSET_SEARCH_STATUS_GOOD) {
             auto entry = (fkfs_entry_t *)ptr;
-            if (entry->file == iter->token.file) {
-                fkfs_log_verbose("fkfs: scanning: data (%d, %d)", iter->token.block, iter->token.offset);
-                iter->size = entry->size;
-                iter->data = ptr + sizeof(fkfs_entry_t);
-                iter->token.offset += entry->available + sizeof(fkfs_entry_t);
-                success = true;
-                break;
-            } else {
-                fkfs_log_verbose("fkfs: scanning: wrong file (%d) (%d, %d)", entry->file, iter->token.block, iter->token.offset);
+            if (check == FKFS_OFFSET_SEARCH_STATUS_GOOD) {
+                if (entry->file == iter->token.file) {
+                    fkfs_log("fkfs: scanning: return data (%d, %d)", iter->token.block, iter->token.offset);
+                    iter->size = entry->size;
+                    iter->data = ptr + sizeof(fkfs_entry_t);
+                    iter->token.offset += entry->available + sizeof(fkfs_entry_t);
+                    success = true;
+                    break;
+                } else {
+                    fkfs_log("fkfs: scanning: wrong file (%d) (%d, %d)", entry->file, iter->token.block, iter->token.offset);
+                }
             }
 
             iter->token.offset += entry->available + sizeof(fkfs_entry_t);
