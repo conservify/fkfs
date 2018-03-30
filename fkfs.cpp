@@ -592,8 +592,8 @@ uint8_t fkfs_file_iterator_create(fkfs_t *fs, uint8_t fileNumber, fkfs_file_iter
     iter->token.file = fileNumber;
     iter->token.block = file->startBlock;
     iter->token.offset = 0;
-    iter->token.lastBlock = fs->header.block;
-    iter->token.lastOffset = fs->header.offset;
+    iter->token.lastBlock = file->endBlock;
+    iter->token.lastOffset = file->endOffset;
     iter->token.size = file->size;
     return true;
 }
@@ -607,8 +607,8 @@ uint8_t fkfs_file_iterator_reopen(fkfs_t *fs, fkfs_file_iter_t *iter, fkfs_itera
     iter->token.file = token->file;
     iter->token.block = token->block;
     iter->token.offset = token->offset;
-    iter->token.lastBlock = fs->header.block;
-    iter->token.lastOffset = fs->header.offset;
+    iter->token.lastBlock = file->endBlock;
+    iter->token.lastOffset = file->endOffset;
     iter->token.size = file->size;
     return true;
 }
