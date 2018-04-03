@@ -88,6 +88,7 @@ typedef struct fkfs_iterator_token_t {
 typedef struct fkfs_iterator_config_t {
     uint32_t maxBlocks;
     uint32_t maxTime;
+    uint8_t manualNext;
 } fkfs_iterator_config_t;
 
 typedef struct fkfs_file_iter_t {
@@ -135,6 +136,8 @@ uint8_t fkfs_file_iterator_resume(fkfs_t *fs, fkfs_file_iter_t *iter, fkfs_itera
 uint8_t fkfs_file_iterator_move_end(fkfs_t *fs, fkfs_file_iter_t *iter);
 
 uint8_t fkfs_file_iterator_valid(fkfs_t *fs, fkfs_file_iter_t *iter);
+
+uint8_t fkfs_file_iterate_move(fkfs_t *fs, bool checkBlock, fkfs_file_iter_t *iter);
 
 uint8_t fkfs_file_iterate(fkfs_t *fs, fkfs_iterator_config_t *config, fkfs_file_iter_t *iter);
 

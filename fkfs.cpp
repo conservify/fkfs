@@ -666,6 +666,21 @@ uint8_t fkfs_file_iterator_move_end(fkfs_t *fs, fkfs_file_iter_t *iter) {
     return true;
 }
 
+uint8_t fkfs_file_iterate_move(fkfs_t *fs, bool checkBlock, fkfs_file_iter_t *iter) {
+    auto ptr = fs->buffer + iter->token.offset;
+    if (checkBlock) {
+        auto check = fkfs_block_check(fs, ptr);
+        if (check != FKFS_OFFSET_SEARCH_STATUS_CRC && check != FKFS_OFFSET_SEARCH_STATUS_GOOD) {
+            return false;
+        }
+    }
+
+    auto entry = (fkfs_entry_t *)ptr;
+    iter->token.offset += entry->available + sizeof(fkfs_entry_t);
+
+    return true;
+}
+
 uint8_t fkfs_file_iterate(fkfs_t *fs, fkfs_iterator_config_t *config, fkfs_file_iter_t *iter) {
     fs->statistics.iterateCalls++;
 
@@ -704,7 +719,9 @@ uint8_t fkfs_file_iterate(fkfs_t *fs, fkfs_iterator_config_t *config, fkfs_file_
                     fkfs_log("fkfs: scanning: DATA (%d, %3d) %d", iter->token.block, iter->token.offset, entry->size);
                     iter->size = entry->size;
                     iter->data = ptr + sizeof(fkfs_entry_t);
-                    iter->token.offset += entry->available + sizeof(fkfs_entry_t);
+                    if (!config->manualNext) {
+                        iter->token.offset += entry->available + sizeof(fkfs_entry_t);
+                    }
                     success = true;
                     break;
                 } else {
