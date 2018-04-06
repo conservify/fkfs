@@ -95,6 +95,7 @@ typedef struct fkfs_file_iter_t {
     fkfs_iterator_token_t token;
     uint8_t *data;
     uint16_t size;
+    uint32_t iterated;
 } fkfs_file_iter_t;
 
 static_assert(sizeof(fkfs_header_t) * 2 <= SD_RAW_BLOCK_SIZE, "Error: fkfs header too large for SD block.");

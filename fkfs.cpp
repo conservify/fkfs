@@ -719,6 +719,7 @@ uint8_t fkfs_file_iterate(fkfs_t *fs, fkfs_iterator_config_t *config, fkfs_file_
                     fkfs_log("fkfs: scanning: DATA (%d, %3d) %d", iter->token.block, iter->token.offset, entry->size);
                     iter->size = entry->size;
                     iter->data = ptr + sizeof(fkfs_entry_t);
+                    iter->iterated += entry->size;
                     if (!config->manualNext) {
                         iter->token.offset += entry->available + sizeof(fkfs_entry_t);
                     }
