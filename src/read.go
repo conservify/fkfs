@@ -8,7 +8,7 @@ import (
 	"log"
 	"os"
 	"strings"
-	_ "unsafe"
+	"time"
 )
 
 const (
@@ -198,6 +198,8 @@ func main() {
 
 	files := make(map[uint8]*FileInfo)
 
+	prefix := time.Now().Format("20060102_150405")
+
 	for c.Block = 1; c.Block < header.Block; {
 		if c.Block == 0 {
 			c.Block += 1
@@ -208,7 +210,7 @@ func main() {
 
 		if b.Entry != nil {
 			if files[b.Entry.File] == nil {
-				name := fmt.Sprintf("%s", strings.TrimRight(string(b.File.Name[:]), "\x00"))
+				name := fmt.Sprintf("%s_%s", prefix, strings.TrimRight(string(b.File.Name[:]), "\x00"))
 
 				log.Printf("Exporting %s...", name)
 
