@@ -1,21 +1,28 @@
-BUILD=build
+GOARCH ?= amd64
+GOOS ?= linux
+GO ?= env GOOS=$(GOOS) GOARCH=$(GOARCH) go
+BUILD ?= build
+BUILDARCH ?= $(BUILD)/$(GOOS)-$(GOARCH)
 
 default: all testing
 
 $(BUILD):
 	mkdir -p $(BUILD)
 
-all: $(BUILD) gitdeps $(BUILD)/fkfs-read-darwin-amd64 $(BUILD)/fkfs-read-linux-amd64
+$(BUILDARCH):
+	mkdir -p $(BUILDARCH)
+
+all: $(BUILD) gitdeps
+	env GOOS=darwin GOARCH=amd64 make binaries-all
+	env GOOS=linux GOARCH=amd64 make binaries-all
 	cd $(BUILD) && cmake ../ && make
+
+install:
+	env GOOS=darwin GOARCH=amd64 make binaries-install
+	env GOOS=linux GOARCH=amd64 make binaries-install
 
 test: all
 	cd $(BUILD) && make test
-
-$(BUILD)/fkfs-read-darwin-amd64: src/*.go
-	env GOOS=darwin GOARCH=amd64 go build -o $@ $^
-
-$(BUILD)/fkfs-read-linux-amd64: src/*.go
-	env GOOS=linux GOARCH=amd64 go build -o $@ $^
 
 gitdeps:
 	simple-deps --config examples/simple/arduino-libraries
@@ -26,10 +33,6 @@ testing: .PHONY
 	cd testing/build && cmake ../
 	cd testing/build && make
 
-install: all
-	cp $(BUILD)/fkfs-read-linux-amd64 $(INSTALLDIR)
-	cp $(BUILD)/fkfs-read-darwin-amd64 $(INSTALLDIR)
-
 clean:
 	rm -rf testing/build
 	rm -rf $(BUILD)
@@ -37,4 +40,12 @@ clean:
 veryclean: clean
 	rm -rf gitdeps
 
-.PHONY:
+binaries-install: binaries-all
+	cp $(BUILDARCH)/fkfs-read $(INSTALLDIR)
+
+binaries-all: $(BUILDARCH) $(BUILDARCH)/fkfs-read
+
+$(BUILDARCH)/fkfs-read: src/*.go
+	go build -o $@ $^
+
+.PHONY: $(BUILD)
