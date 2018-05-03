@@ -138,6 +138,12 @@ uint8_t fkfs_file_iterator_move_end(fkfs_t *fs, fkfs_file_iter_t *iter);
 
 uint8_t fkfs_file_iterator_valid(fkfs_t *fs, fkfs_file_iter_t *iter);
 
+constexpr uint8_t FKFS_ENSURE_FAILED = 0;
+constexpr uint8_t FKFS_ENSURE_LOADED = 1;
+constexpr uint8_t FKFS_ENSURE_NOOP = 2;
+
+uint8_t fkfs_file_iterator_ensure(fkfs_t *fs, fkfs_file_iter_t *iter);
+
 uint8_t fkfs_file_iterate_move(fkfs_t *fs, bool checkBlock, fkfs_file_iter_t *iter);
 
 uint8_t fkfs_file_iterate(fkfs_t *fs, fkfs_iterator_config_t *config, fkfs_file_iter_t *iter);

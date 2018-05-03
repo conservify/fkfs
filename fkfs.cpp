@@ -681,6 +681,19 @@ uint8_t fkfs_file_iterate_move(fkfs_t *fs, bool checkBlock, fkfs_file_iter_t *it
     return true;
 }
 
+uint8_t fkfs_file_iterator_ensure(fkfs_t *fs, fkfs_file_iter_t *iter) {
+    if (fs->cachedBlockNumber == iter->token.block) {
+        return FKFS_ENSURE_NOOP;
+    }
+
+    if (!fkfs_block_ensure(fs, iter->token.block)) {
+        fkfs_log("fkfs: unable to ensure block %d", iter->token.block);
+        return FKFS_ENSURE_FAILED;
+    }
+
+    return FKFS_ENSURE_LOADED;
+}
+
 uint8_t fkfs_file_iterate(fkfs_t *fs, fkfs_iterator_config_t *config, fkfs_file_iter_t *iter) {
     fs->statistics.iterateCalls++;
 
