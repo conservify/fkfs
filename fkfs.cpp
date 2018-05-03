@@ -182,9 +182,6 @@ static uint8_t fkfs_header_write(fkfs_t *fs, bool wipe) {
 }
 
 static uint8_t fkfs_block_ensure(fkfs_t *fs, uint32_t block) {
-    if (fs->cachedBlockDirty) {
-    }
-
     if (fs->cachedBlockNumber != block) {
         if (!fkfs_read_block(fs, block, (uint8_t *)fs->buffer)) {
             return false;
