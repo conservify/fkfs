@@ -4,7 +4,7 @@ GO ?= env GOOS=$(GOOS) GOARCH=$(GOARCH) go
 BUILD ?= build
 BUILDARCH ?= $(BUILD)/$(GOOS)-$(GOARCH)
 
-default: all testing
+default: all testing test
 
 $(BUILD):
 	mkdir -p $(BUILD)
