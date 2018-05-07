@@ -603,7 +603,7 @@ uint8_t fkfs_file_iterator_create(fkfs_t *fs, uint8_t fileNumber, fkfs_file_iter
     fkfs_file_t *file = &fs->header.files[fileNumber];
     iter->token.file = fileNumber;
     iter->token.block = file->startBlock;
-    iter->token.offset = 0;
+    iter->token.offset = file->startOffset;
     iter->token.lastBlock = file->endBlock;
     iter->token.lastOffset = file->endOffset;
     iter->token.size = file->size;
