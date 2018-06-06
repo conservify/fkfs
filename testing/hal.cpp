@@ -1,6 +1,11 @@
+#ifdef __linux__
 #include <linux/unistd.h>       /* for _syscallX macros/related stuff */
 #include <linux/kernel.h>       /* for struct sysinfo */
 #include <sys/sysinfo.h>
+#endif
+#ifdef __APPLE__
+#include <sys/sysctl.h>
+#endif
 
 #include "hal.h"
 #include "sd_raw.h"
@@ -15,11 +20,26 @@ struct sd_raw_file_t {
     FILE *fp;
 };
 
+#ifdef __linux__
 uint32_t millis() {
     struct sysinfo s_info;
     auto error = sysinfo(&s_info);
     return s_info.uptime;
 }
+#endif
+
+#ifdef __APPLE__
+uint32_t millis() {
+    struct timeval ts;
+    size_t length = sizeof(ts);
+    int32_t mib[2] = { CTL_KERN, KERN_BOOTTIME };
+    if (sysctl(mib, 2, &ts, &length, NULL, 0) == 0) {
+        return static_cast<unsigned long long>(ts.tv_sec) * 1000ULL +
+               static_cast<unsigned long long>(ts.tv_usec) / 1000ULL;
+    }
+    return 0;
+}
+#endif
 
 uint32_t random(uint32_t max) {
     return rand() % max;
