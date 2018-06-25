@@ -21,7 +21,7 @@ int main(int argc, const char **argv) {
 
     fkfs_t fs;
     if (!fkfs_create(&fs)) {
-        return false;
+        return 2;
     }
 
     if (!sd_raw_file_initialize(&fs.sd, argv[1])) {
