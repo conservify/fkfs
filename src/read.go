@@ -50,11 +50,13 @@ type Entry struct {
 }
 
 type File struct {
-	Name       [12]byte
-	Version    uint16
-	StartBlock uint32
-	EndBlock   uint32
-	Size       uint32
+	Name        [12]byte
+	Version     uint16
+	StartBlock  uint32
+	StartOffset uint16
+	EndBlock    uint32
+	EndOffset   uint16
+	Size        uint32
 }
 
 type HeaderBlock struct {
@@ -63,7 +65,7 @@ type HeaderBlock struct {
 	Block      uint32
 	Offset     uint16
 	Time       uint32
-	Files      [6]File
+	Files      [4]File
 	Crc        uint16
 }
 
