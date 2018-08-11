@@ -1,8 +1,7 @@
 .gradle
 gradle.properties
 firmwaretool.properties
-
 build
 gitdeps
-
 log.txt
+dependencies.cmake
