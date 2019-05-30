@@ -25,8 +25,8 @@ test: all
 	cd $(BUILD) && make test
 
 gitdeps:
-	simple-deps --config examples/simple/arduino-libraries
-	simple-deps --config examples/dma/arduino-libraries
+	simple-deps --config examples/simple/dependencies.sd
+	simple-deps --config examples/dma/dependencies.sd
 
 testing: .PHONY
 	mkdir -p testing/build

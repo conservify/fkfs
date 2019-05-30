@@ -1,17 +1,21 @@
-set(SOURCE_FILES
+include(Arduino)
+
+enable_arduino_toolchain()
+
+set(sources
   main.cpp
   ../../sd_raw.cpp
   ../../fkfs.cpp
   ../../fkfs_log.cpp
-)
+  )
 
-set(LIBRARIES
-  SPI
-  SD
-)
+add_arduino_library(fkfs-example-simple "${sources}")
 
-include_directories(../../)
+find_package(SPI)
+target_link_libraries(fkfs-example-simple SPI)
 
-arduino(fkfs-example-simple "${SOURCE_FILES}" "${LIBRARIES}")
+target_include_directories(fkfs-example-simple PRIVATE ../../)
 
 target_compile_options(fkfs-example-simple PRIVATE -Wall -Werror)
+
+add_arduino_firmware(fkfs-example-simple)
